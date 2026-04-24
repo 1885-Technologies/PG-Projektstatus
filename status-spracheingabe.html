@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎙️ Status-Tagebuch Spracheingabe</title>
+  <style>
+    :root {
+      --primary: #0078d4;
+      --primary-dark: #005a9e;
+      --success: #107c10;
+      --danger: #d13438;
+      --bg: #f3f2f1;
+      --card: #ffffff;
+      --border: #e1dfdd;
+      --text: #323130;
+      --muted: #605e5c;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 32px 16px 64px;
+    }
+    .container { width: 100%; max-width: 680px; }
+    .header { text-align: center; margin-bottom: 28px; }
+    .header h1 { font-size: 1.6rem; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+    .header p  { color: var(--muted); font-size: 0.92rem; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px; margin-bottom: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.06);
+    }
+    .field-label {
+      font-size: 0.82rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .04em;
+      margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+    }
+    .field-label .required { color: var(--danger); }
+
+    /* User selector */
+    .user-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+    .user-btn {
+      flex: 1; min-width: 120px; padding: 10px 14px;
+      border: 2px solid var(--border); border-radius: var(--radius);
+      background: transparent; cursor: pointer;
+      font-size: 0.95rem; font-family: inherit; font-weight: 600; color: var(--text);
+      transition: all .15s;
+    }
+    .user-btn:hover  { border-color: var(--primary); color: var(--primary); }
+    .user-btn.selected { border-color: var(--primary); background: var(--primary); color: #fff; }
+
+    /* Select dropdown */
+    select.sp-select {
+      width: 100%; padding: 10px 36px 10px 14px;
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-family: inherit; font-size: 1rem; color: var(--text);
+      background: var(--bg)
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%23605e5c' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")
+        no-repeat right 12px center;
+      appearance: none; cursor: pointer; transition: border-color .15s;
+    }
+    select.sp-select:focus   { outline: none; border-color: var(--primary); background-color: #fff; }
+    select.sp-select:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* Text input */
+    .text-input {
+      width: 100%; padding: 10px 14px;
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-family: inherit; font-size: 1rem; color: var(--text);
+      background: var(--bg); transition: border-color .15s;
+    }
+    .text-input:focus { outline: none; border-color: var(--primary); background: #fff; }
+
+    /* Projekt loading note */
+    .load-note { font-size: 0.8rem; color: var(--muted); margin-top: 6px; display: none; }
+    .load-note.show { display: block; }
+
+    /* Ampel selector */
+    .ampel-grid { display: flex; gap: 10px; }
+    .ampel-btn {
+      flex: 1; padding: 12px 8px;
+      border: 2px solid var(--border); border-radius: var(--radius);
+      background: transparent; cursor: pointer;
+      font-size: 1.5rem; text-align: center; transition: all .15s;
+    }
+    .ampel-btn span.label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--muted); margin-top: 4px; }
+    .ampel-btn:hover { transform: scale(1.05); border-color: #999; }
+    .ampel-btn[data-val="Kritisch"].selected { border-color: #cc1111; background: #fff0f0; }
+    .ampel-btn[data-val="Achtung"].selected  { border-color: #cc9900; background: #fffbe0; }
+    .ampel-btn[data-val="OK"].selected       { border-color: #108000; background: #efffee; }
+
+    /* Fortschritt slider */
+    .fortschritt-row { display: flex; align-items: center; gap: 14px; }
+    input[type="range"] { flex: 1; accent-color: var(--primary); cursor: pointer; }
+    .fortschritt-val { min-width: 52px; text-align: center; font-size: 1.1rem; font-weight: 700; color: var(--primary); }
+
+    /* Voice textarea */
+    .voice-field { position: relative; }
+    textarea.text-input { resize: vertical; min-height: 88px; padding-right: 52px; }
+    .mic-btn {
+      position: absolute; right: 10px; bottom: 10px;
+      width: 36px; height: 36px; border-radius: 50%; border: none;
+      background: var(--primary); color: #fff; font-size: 1.1rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background .15s; box-shadow: 0 2px 6px rgba(0,120,212,.35);
+    }
+    .mic-btn:hover { background: var(--primary-dark); }
+    .mic-btn.recording { background: var(--danger); animation: pulse 1.1s infinite; }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(209,52,56,.5); }
+      70%  { box-shadow: 0 0 0 10px rgba(209,52,56,0); }
+      100% { box-shadow: 0 0 0 0 rgba(209,52,56,0); }
+    }
+    .mic-hint { font-size: 0.78rem; color: var(--muted); margin-top: 5px; }
+
+    /* Submit */
+    .submit-btn {
+      width: 100%; padding: 14px; border: none; border-radius: var(--radius);
+      background: var(--primary); color: #fff;
+      font-family: inherit; font-size: 1.05rem; font-weight: 700;
+      cursor: pointer; transition: background .15s, transform .05s;
+    }
+    .submit-btn:hover    { background: var(--primary-dark); }
+    .submit-btn:active   { transform: scale(.99); }
+    .submit-btn:disabled { background: #c8c6c4; cursor: not-allowed; }
+
+    /* Status banner */
+    .status-banner {
+      padding: 14px 18px; border-radius: var(--radius);
+      font-size: 0.95rem; font-weight: 500;
+      display: none; margin-bottom: 14px;
+    }
+    .status-banner.show    { display: flex; align-items: center; gap: 10px; }
+    .status-banner.success { background: #dff6dd; color: var(--success); border: 1px solid #bad9b5; }
+    .status-banner.error   { background: #fde7e9; color: var(--danger);  border: 1px solid #f4b8bc; }
+    .status-banner.sending { background: #e6f4ff; color: var(--primary); border: 1px solid #b3d7f5; }
+
+    /* Spinner */
+    .spinner {
+      width: 18px; height: 18px; border: 3px solid currentColor;
+      border-right-color: transparent; border-radius: 50%;
+      animation: spin .7s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* No speech warning */
+    .no-speech {
+      background: #fff8e1; border: 1px solid #ffe082;
+      border-radius: var(--radius); padding: 10px 14px;
+      font-size: 0.85rem; color: #5d4037; margin-top: 6px; display: none;
+    }
+
+    /* Debug link */
+    .debug-hint { text-align: center; margin-top: 12px; font-size: 0.75rem; color: var(--muted); }
+    .debug-hint a { color: var(--primary); cursor: pointer; font-family: monospace; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>🎙️ Status-Tagebuch</h1>
+    <p>Tagesstatus per Sprache oder Text direkt in SharePoint speichern</p>
+  </div>
+
+  <div id="status-banner" class="status-banner"></div>
+
+  <!-- Benutzer -->
+  <div class="card">
+    <div class="field-label">👤 Benutzer <span class="required">*</span></div>
+    <div class="user-grid">
+      <button class="user-btn" data-user="Wolfgang" onclick="selectUser(this)">Wolfgang</button>
+      <button class="user-btn" data-user="Clemens"  onclick="selectUser(this)">Clemens</button>
+      <button class="user-btn" data-user="Lucia"    onclick="selectUser(this)">Lucia</button>
+    </div>
+  </div>
+
+  <!-- Projekt-Dropdown -->
+  <div class="card">
+    <div class="field-label">🏗️ Projekt <span class="required">*</span></div>
+    <select id="projekt-select" class="sp-select" disabled>
+      <option value="">⏳ Projekte werden geladen …</option>
+    </select>
+    <div id="load-note" class="load-note"></div>
+  </div>
+
+  <!-- Ampelstatus -->
+  <div class="card">
+    <div class="field-label">🚦 Ampelstatus <span class="required">*</span></div>
+    <div class="ampel-grid">
+      <button class="ampel-btn" data-val="Kritisch" onclick="selectAmpel(this)">🔴<span class="label">Kritisch</span></button>
+      <button class="ampel-btn" data-val="Achtung"  onclick="selectAmpel(this)">🟡<span class="label">Achtung</span></button>
+      <button class="ampel-btn" data-val="OK"       onclick="selectAmpel(this)">🟢<span class="label">OK</span></button>
+    </div>
+  </div>
+
+  <!-- Fortschritt % -->
+  <div class="card">
+    <div class="field-label">📊 Fortschritt %</div>
+    <div class="fortschritt-row">
+      <input type="range" id="fortschritt" min="0" max="100" step="5" value="0"
+             oninput="document.getElementById('f-val').textContent = this.value + ' %'" />
+      <div class="fortschritt-val" id="f-val">0 %</div>
+    </div>
+  </div>
+
+  <!-- Was wurde erreicht -->
+  <div class="card">
+    <div class="field-label">✅ Was wurde erreicht?</div>
+    <div class="voice-field">
+      <textarea id="statustext" class="text-input"
+        placeholder="Was läuft gut? Was wurde heute fertiggestellt? Aktueller Stand?" rows="3"></textarea>
+      <button class="mic-btn" id="mic-statustext" title="Spracheingabe" onclick="toggleMic('statustext')">🎙️</button>
+    </div>
+    <div id="mic-statustext-hint" class="mic-hint">🎙️ Mikrofon-Button drücken und sprechen</div>
+    <div id="no-speech-statustext" class="no-speech">⚠️ Kein Web-Speech-API — bitte Chrome oder Edge verwenden.</div>
+  </div>
+
+  <!-- Nächste Schritte -->
+  <div class="card">
+    <div class="field-label">➡️ Nächste Schritte / Maßnahmen</div>
+    <div class="voice-field">
+      <textarea id="naechsteschritte" class="text-input"
+        placeholder="Was sind die nächsten Aktionen?" rows="3"></textarea>
+      <button class="mic-btn" id="mic-naechsteschritte" title="Spracheingabe" onclick="toggleMic('naechsteschritte')">🎙️</button>
+    </div>
+    <div id="mic-naechsteschritte-hint" class="mic-hint">🎙️ Mikrofon-Button drücken und sprechen</div>
+    <div id="no-speech-naechsteschritte" class="no-speech">⚠️ Kein Web-Speech-API — bitte Chrome oder Edge verwenden.</div>
+  </div>
+
+  <!-- Submit -->
+  <button id="submit-btn" class="submit-btn" onclick="submitStatus()">
+    💾 Status in SharePoint speichern
+  </button>
+
+  <div class="debug-hint">
+    Feldnamen prüfen: <a onclick="debugListFields()">debugListFields()</a> in Browser-Konsole (F12)
+  </div>
+
+</div>
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+//  KONFIGURATION — hier anpassen, wenn interne Feldnamen abweichen
+//  → Falls ein Feld nicht gespeichert wird: debugListFields() in Konsole (F12)
+// ════════════════════════════════════════════════════════════════════════════
+const SITE_URL      = '/sites/ProgrammHubDigitalisierungKIAutomationInnovation';
+const LIST_PROJEKTE = 'ProjektStamm';
+const LIST_TAGEBUCH = 'StatusTagebuch';
+
+// Interne SharePoint-Feldnamen (linke Spalte aus debugListFields())
+const SP = {
+  title:            'Title',                           // "Status-Eintrag" — immer Title
+  projekt:          'Projekt',                         // "Projekt" — bei Lookup: 'ProjektId'
+  datum:            'Datum',                           // "Datum"
+  ampelstatus:      'Ampelstatus',                     // "Ampelstatus (heute)" — ggf. anpassen
+  fortschritt:      'Fortschritt',                     // "Fortschritt %" — ggf. anpassen
+  wasWurdeErreicht: 'Was_x0020_wurde_x0020_erreicht',  // "Was wurde erreicht" — ggf. anpassen
+  naechsteSchritte: null,                              // null = Spalte nicht bekannt, wird ignoriert
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════════════════════
+let selectedUser  = '';
+let selectedAmpel = '';
+let activeRecog   = null;
+let activeField   = null;
+
+// ════════════════════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    document.querySelectorAll('.no-speech').forEach(el => el.style.display = 'block');
+    document.querySelectorAll('.mic-btn').forEach(el => el.disabled = true);
+  }
+  await ladeProjekte();
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+//  PROJEKTE AUS SHAREPOINT LADEN
+// ════════════════════════════════════════════════════════════════════════════
+async function ladeProjekte() {
+  const select  = document.getElementById('projekt-select');
+  const noteEl  = document.getElementById('load-note');
+
+  try {
+    const url = `${SITE_URL}/_api/web/lists/getByTitle('${LIST_PROJEKTE}')/items` +
+                `?$select=Id,Title&$orderby=Title asc&$top=500`;
+
+    const resp = await fetch(url, {
+      headers: { 'Accept': 'application/json;odata=verbose' },
+      credentials: 'include'
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} – ${resp.statusText}`);
+
+    const data = await resp.json();
+    const projekte = data.d.results;
+
+    select.innerHTML = '<option value="">— Bitte Projekt wählen —</option>';
+    projekte.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.Id;
+      opt.textContent = p.Title;
+      select.appendChild(opt);
+    });
+
+    if (projekte.length === 0) {
+      select.innerHTML = '<option value="">— Keine Projekte vorhanden —</option>';
+    }
+
+    select.disabled = false;
+
+  } catch (err) {
+    console.error('Projekte konnten nicht geladen werden:', err);
+
+    // Fallback: Freitexteingabe
+    select.parentElement.innerHTML = `
+      <div class="field-label">🏗️ Projekt <span class="required">*</span></div>
+      <input id="projekt-text" type="text" class="text-input"
+             placeholder="Projektnamen eingeben …" />
+      <div class="load-note show" style="display:block">
+        ⚠️ Projektliste nicht erreichbar (${err.message}). Bitte sicherstellen, dass die Datei
+        über SharePoint geöffnet ist (nicht als lokale Datei). Freitext-Fallback aktiv.
+      </div>`;
+  }
+}
+
+// Projekttitel ermitteln (Dropdown oder Fallback-Textfeld)
+function getProjektTitel() {
+  const sel  = document.getElementById('projekt-select');
+  const text = document.getElementById('projekt-text');
+  if (text) return text.value.trim();
+  if (!sel || !sel.value) return '';
+  return sel.options[sel.selectedIndex].text;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  FORM DIGEST (CSRF-TOKEN)
+// ════════════════════════════════════════════════════════════════════════════
+async function getFormDigest() {
+  const resp = await fetch(`${SITE_URL}/_api/contextinfo`, {
+    method: 'POST',
+    headers: { 'Accept': 'application/json;odata=verbose' },
+    credentials: 'include'
+  });
+  if (!resp.ok) throw new Error(`contextinfo: HTTP ${resp.status}`);
+  const data = await resp.json();
+  return data.d.GetContextWebInformation.FormDigestValue;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LISTENEINTRAG SCHREIBEN
+// ════════════════════════════════════════════════════════════════════════════
+async function schreibeEintrag(digest, felder) {
+  const body = {
+    __metadata: { type: `SP.Data.${LIST_TAGEBUCH}ListItem` },
+    ...felder
+  };
+  const resp = await fetch(
+    `${SITE_URL}/_api/web/lists/getByTitle('${LIST_TAGEBUCH}')/items`,
+    {
+      method: 'POST',
+      headers: {
+        'Accept':          'application/json;odata=verbose',
+        'Content-Type':    'application/json;odata=verbose',
+        'X-RequestDigest': digest
+      },
+      credentials: 'include',
+      body: JSON.stringify(body)
+    }
+  );
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    let msg = errText;
+    try { msg = JSON.parse(errText).error?.message?.value || errText; } catch {}
+    throw new Error(`HTTP ${resp.status}: ${msg}`);
+  }
+  return resp.json();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  UI-SELEKTOREN
+// ════════════════════════════════════════════════════════════════════════════
+function selectUser(btn) {
+  document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedUser = btn.dataset.user;
+}
+function selectAmpel(btn) {
+  document.querySelectorAll('.ampel-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedAmpel = btn.dataset.val;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  SPRACHEINGABE
+// ════════════════════════════════════════════════════════════════════════════
+function toggleMic(fieldId) {
+  if (activeField === fieldId && activeRecog) { activeRecog.stop(); return; }
+  if (activeRecog) activeRecog.stop();
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+
+  const recog = new SR();
+  recog.lang = 'de-DE'; recog.interimResults = true; recog.continuous = true;
+
+  const micBtn     = document.getElementById('mic-' + fieldId);
+  const hintEl     = document.getElementById('mic-' + fieldId + '-hint');
+  const textarea   = document.getElementById(fieldId);
+  const baseText   = textarea.value;
+
+  recog.onstart = () => {
+    activeField = fieldId; activeRecog = recog;
+    micBtn.classList.add('recording'); micBtn.textContent = '⏹️';
+    hintEl.textContent = '🔴 Aufnahme läuft … erneut drücken zum Stoppen';
+  };
+  recog.onresult = (e) => {
+    let interim = '', final = baseText;
+    for (let i = 0; i < e.results.length; i++) {
+      if (e.results[i].isFinal)
+        final += (final && !final.endsWith(' ') ? ' ' : '') + e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    textarea.value = final + (interim ? ' [' + interim + ']' : '');
+  };
+  recog.onerror = (e) => {
+    hintEl.textContent = '⚠️ Fehler: ' + e.error;
+    cleanup(fieldId);
+  };
+  recog.onend = () => {
+    textarea.value = textarea.value.replace(/\s*\[[^\]]*\]$/, '').trim();
+    hintEl.textContent = '✅ Aufnahme beendet.';
+    cleanup(fieldId);
+  };
+  recog.start(); activeRecog = recog;
+}
+
+function cleanup(fieldId) {
+  const b = document.getElementById('mic-' + fieldId);
+  if (b) { b.classList.remove('recording'); b.textContent = '🎙️'; }
+  activeField = null; activeRecog = null;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  VALIDIERUNG & SUBMIT
+// ════════════════════════════════════════════════════════════════════════════
+function validate() {
+  if (!selectedUser)        { showBanner('error', '⚠️ Bitte Benutzer auswählen.');   return false; }
+  if (!getProjektTitel())   { showBanner('error', '⚠️ Bitte Projekt auswählen.');     return false; }
+  if (!selectedAmpel)       { showBanner('error', '⚠️ Bitte Ampelstatus auswählen.'); return false; }
+  return true;
+}
+
+async function submitStatus() {
+  if (!validate()) return;
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  showBanner('sending', '<div class="spinner"></div> Wird in SharePoint gespeichert …');
+
+  try {
+    const digest       = await getFormDigest();
+    const heute        = new Date();
+    const datumISO     = heute.toISOString().split('T')[0] + 'T00:00:00Z';
+    const projektTitel = getProjektTitel();
+    const statustext   = document.getElementById('statustext').value.trim();
+    const naechste     = document.getElementById('naechsteschritte').value.trim();
+    const fortschritt  = parseInt(document.getElementById('fortschritt').value, 10);
+
+    // "Status-Eintrag" (Title) als lesbare Zusammenfassung
+    const titleVal = `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`;
+
+    // Felder zusammenstellen (nur bekannte Spalten)
+    const felder = {};
+    felder[SP.title]       = titleVal;
+    felder[SP.datum]       = datumISO;
+    felder[SP.ampelstatus] = selectedAmpel;
+    felder[SP.projekt]     = projektTitel;   // bei Lookup: ProjektId: { __metadata: {...}, Id: id }
+    if (SP.fortschritt)      felder[SP.fortschritt]      = fortschritt;
+    if (SP.wasWurdeErreicht && statustext) felder[SP.wasWurdeErreicht] = statustext;
+    if (SP.naechsteSchritte && naechste)   felder[SP.naechsteSchritte] = naechste;
+
+    await schreibeEintrag(digest, felder);
+
+    showBanner('success',
+      `✅ Eintrag gespeichert! ` +
+      `<a href="${SITE_URL}/Lists/${LIST_TAGEBUCH}/AllItems.aspx" target="_blank" ` +
+      `style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch öffnen →</a>`
+    );
+    resetForm();
+
+  } catch (err) {
+    console.error('Fehler beim Speichern:', err);
+    let tipp = '';
+    if (/Invalid field|cannot be found/i.test(err.message))
+      tipp = ' → debugListFields() in Konsole (F12) für korrekte Feldnamen';
+    else if (/401|403|Unauthorized|Forbidden/i.test(err.message))
+      tipp = ' → Datei muss über SharePoint geöffnet werden, nicht als lokale Datei';
+    showBanner('error', `❌ ${err.message}${tipp}`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  DEBUG: Listet alle internen Feldnamen in der Browser-Konsole (F12)
+// ════════════════════════════════════════════════════════════════════════════
+async function debugListFields() {
+  try {
+    const url = `${SITE_URL}/_api/web/lists/getByTitle('${LIST_TAGEBUCH}')/fields` +
+                `?$select=Title,InternalName,TypeAsString` +
+                `&$filter=Hidden eq false and ReadOnlyField eq false` +
+                `&$orderby=InternalName asc`;
+    const resp = await fetch(url, {
+      headers: { 'Accept': 'application/json;odata=verbose' },
+      credentials: 'include'
+    });
+    const data = await resp.json();
+    const zeilen = data.d.results.map(f =>
+      `  ${f.InternalName.padEnd(45)} "${f.Title}" (${f.TypeAsString})`
+    ).join('\n');
+    console.log(`\n📋 Felder in "${LIST_TAGEBUCH}":\n\n  InternalName (→ in SP-Config eintragen)       Anzeigename (TypeAsString)\n${'─'.repeat(90)}\n${zeilen}\n`);
+    console.log('→ Oben im Skript im SP-Objekt die internen Namen eintragen.');
+  } catch (e) { console.error('debugListFields Fehler:', e); }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  RESET
+// ════════════════════════════════════════════════════════════════════════════
+function showBanner(type, html) {
+  const el = document.getElementById('status-banner');
+  el.className = 'status-banner show ' + type;
+  el.innerHTML = html;
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (type === 'success') setTimeout(() => el.classList.remove('show'), 9000);
+}
+
+function resetForm() {
+  selectedUser  = '';
+  selectedAmpel = '';
+  document.querySelectorAll('.user-btn, .ampel-btn').forEach(b => b.classList.remove('selected'));
+  const sel = document.getElementById('projekt-select');
+  if (sel) sel.selectedIndex = 0;
+  const txt = document.getElementById('projekt-text');
+  if (txt) txt.value = '';
+  document.getElementById('fortschritt').value  = 0;
+  document.getElementById('f-val').textContent  = '0 %';
+  document.getElementById('statustext').value        = '';
+  document.getElementById('naechsteschritte').value  = '';
+  document.querySelectorAll('.mic-hint').forEach(h =>
+    h.textContent = '🎙️ Mikrofon-Button drücken und sprechen');
+}
+</script>
+</body>
+</html>
