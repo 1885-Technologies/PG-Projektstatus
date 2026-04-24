@@ -286,7 +286,7 @@ async function getToken() {
       return r.accessToken;
     } catch (e) { /* silent failed, fall through to popup */ }
   }
-  const r = await msalInstance.acquireTokenPopup({ scopes: SP_SCOPES });
+  await msalInstance.acquireTokenRedirect({ scopes: SP_SCOPES });
   updateAuthBar(r.account);
   return r.accessToken;
 }
