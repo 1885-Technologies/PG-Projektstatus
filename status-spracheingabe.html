@@ -166,7 +166,7 @@ const MSAL_CONFIG = {
     authority:   'https://login.microsoftonline.com/66cca675-2e74-4161-bb72-ccc695c62857',
     redirectUri: window.location.origin + window.location.pathname
   },
-  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
+  cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
 };
 const SP_SCOPES = [SP_BASE + '/AllSites.Write'];
 let msalInstance = null;
