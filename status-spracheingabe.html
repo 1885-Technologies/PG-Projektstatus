@@ -217,11 +217,16 @@ async function signOut() {
 let selectedUser = '', selectedAmpel = '', activeRecog = null, activeField = null;
 
 window.addEventListener('DOMContentLoaded', async () => {
+  await initMSAL();
+  // Wenn diese Seite als MSAL-Popup geöffnet wurde: nur Redirect verarbeiten, dann stop.
+  // MSAL schließt das Popup automatisch nachdem handleRedirectPromise() die Auth-Daten
+  // an das Elternfenster gesendet hat.
+  if (window.opener !== null) return;
+
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     document.querySelectorAll('.no-speech').forEach(el => el.style.display = 'block');
     document.querySelectorAll('.mic-btn').forEach(el => el.disabled = true);
   }
-  await initMSAL();
   // Nur laden wenn bereits eingeloggt (Session vorhanden) — sonst wartet der Button auf Klick
   if (msalInstance.getAllAccounts().length > 0) await ladeProjekte();
 });
