@@ -175,7 +175,9 @@ async function initMSAL() {
   if (msalInstance) return;
   msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
   await msalInstance.initialize();
-  await msalInstance.handleRedirectPromise();
+  // Redirect-Response verarbeiten (nach Login-Weiterleitung)
+  const response = await msalInstance.handleRedirectPromise();
+  if (response) updateAuthBar(response.account);
 }
 
 async function getToken() {
@@ -186,12 +188,12 @@ async function getToken() {
       const r = await msalInstance.acquireTokenSilent({ scopes: SP_SCOPES, account: accounts[0] });
       updateAuthBar(accounts[0]);
       return r.accessToken;
-    } catch (e) { console.log('Silent token fehlgeschlagen, öffne Popup …'); }
+    } catch (e) { console.log('Silent fehlgeschlagen, Redirect …'); }
   }
-  // Popup — funktioniert weil durch Klick ausgelöst
-  const r = await msalInstance.acquireTokenPopup({ scopes: SP_SCOPES });
-  updateAuthBar(r.account);
-  return r.accessToken;
+  // Redirect-Flow: Seite leitet zu Microsoft weiter, kommt nach Login zurück
+  await msalInstance.acquireTokenRedirect({ scopes: SP_SCOPES });
+  // Diese Zeile wird nie erreicht — Seite navigiert weg
+  throw new Error('Redirect läuft …');
 }
 
 function updateAuthBar(account) {
@@ -217,17 +219,14 @@ async function signOut() {
 let selectedUser = '', selectedAmpel = '', activeRecog = null, activeField = null;
 
 window.addEventListener('DOMContentLoaded', async () => {
+  // MSAL initialisieren & Redirect-Response verarbeiten (falls von Microsoft zurückgeleitet)
   await initMSAL();
-  // Wenn diese Seite als MSAL-Popup geöffnet wurde: nur Redirect verarbeiten, dann stop.
-  // MSAL schließt das Popup automatisch nachdem handleRedirectPromise() die Auth-Daten
-  // an das Elternfenster gesendet hat.
-  if (window.opener !== null) return;
 
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     document.querySelectorAll('.no-speech').forEach(el => el.style.display = 'block');
     document.querySelectorAll('.mic-btn').forEach(el => el.disabled = true);
   }
-  // Nur laden wenn bereits eingeloggt (Session vorhanden) — sonst wartet der Button auf Klick
+  // Projekte automatisch laden wenn bereits eingeloggt (Session oder nach Redirect-Login)
   if (msalInstance.getAllAccounts().length > 0) await ladeProjekte();
 });
 
