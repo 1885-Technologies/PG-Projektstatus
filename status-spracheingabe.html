@@ -470,9 +470,10 @@ async function submitStatus() {
     felder['Title'] = `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`;
     felder['Datum'] = heute.toISOString().split('T')[0] + 'T00:00:00Z';
     felder['Ampelstatus_x0028_heute_x0029_'] = selectedAmpel;
-    felder['Fortschritt_x0025_']             = fortschritt / 100;  // 45% → 0.45
+    felder['Fortschritt_x0025_']             = fortschritt;  // Als Ganzzahl (10 = 10%)
     if (statustext) felder['Waswurdeerreicht_x003f_'] = statustext;
-    if (naechste)   felder['_x27a1__xfe0f_N_x00e4_chsteSchri'] = naechste;
+    // Nächste Schritte: optionales Feld mit komplexem Namen, vorerst weggelassen
+    // if (naechste) felder['_x27a1__xfe0f_N_x00e4_chsteSchri'] = naechste;
 
     await schreibeStatusEintrag(felder);
 
