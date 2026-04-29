@@ -462,10 +462,6 @@ async function submitStatus() {
     const felder = {};
     felder['Title'] = `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`;
     felder['Datum'] = heute.toISOString().split('T')[0] + 'T00:00:00Z';
-    // Fortschritt als Dezimalwert (SharePoint Percentage = 0.0 bis 1.0)
-    felder['Fortschritt_x0025_'] = fortschritt / 100;
-    felder['Ampelstatus_x0028_heute_x0029_'] = selectedAmpel;
-    if (statustext) felder['Waswurdeerreicht_x003f_'] = statustext;
 
     await schreibeStatusEintrag(felder);
 
