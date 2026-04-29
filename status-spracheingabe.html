@@ -162,15 +162,15 @@ const LIST_TAG     = 'Status-Tagebuch';
 // Microsoft Graph Scopes (funktioniert für externe/B2B-Nutzer)
 const GRAPH_SCOPES = ['https://graph.microsoft.com/Sites.ReadWrite.All'];
 
-// Spaltennamen StatusTagebuch
+// Spaltennamen StatusTagebuch (echte Graph-API-Namen)
 const SP_TAG = {
   title:            'Title',
-  projekt:          'Projekt',
+  projektLookupId:  'ProjektLookupId',        // Lookup-Feld → Integer-ID
   datum:            'Datum',
-  ampelstatus:      'Ampelstatus',
-  fortschritt:      'Fortschritt',
-  wasWurdeErreicht: 'Was_x0020_wurde_x0020_erreicht',
-  naechsteSchritte: null,
+  ampelstatus:      'Ampelstatus_x0028_heute_x0029_',
+  fortschritt:      'Fortschritt_x0025_',
+  wasWurdeErreicht: 'Waswurdeerreicht_x003f_',
+  naechsteSchritte: '_x27a1__xfe0f_N_x00e4_chsteSchri',
 };
 
 // Spaltennamen Projekt-Stamm (für automatische Aktualisierung)
@@ -460,13 +460,13 @@ async function submitStatus() {
 
     // 1. StatusTagebuch-Eintrag erstellen
     const felder = {};
-    felder[SP_TAG.title]       = `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`;
-    felder[SP_TAG.datum]       = heute.toISOString().split('T')[0] + 'T00:00:00Z';
-    felder[SP_TAG.ampelstatus] = selectedAmpel;
-    felder[SP_TAG.projekt]     = projektTitel;
-    if (SP_TAG.fortschritt)      felder[SP_TAG.fortschritt]      = fortschritt;
-    if (SP_TAG.wasWurdeErreicht && statustext) felder[SP_TAG.wasWurdeErreicht] = statustext;
-    if (SP_TAG.naechsteSchritte && naechste)   felder[SP_TAG.naechsteSchritte] = naechste;
+    felder['Title']                        = `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`;
+    felder['Datum']                        = heute.toISOString().split('T')[0] + 'T00:00:00Z';
+    felder['Ampelstatus_x0028_heute_x0029_'] = selectedAmpel;
+    felder['ProjektLookupId']              = parseInt(projektId) || null;  // Lookup braucht Integer
+    felder['Fortschritt_x0025_']           = fortschritt;
+    if (statustext) felder['Waswurdeerreicht_x003f_']                = statustext;
+    if (naechste)   felder['_x27a1__xfe0f_N_x00e4_chsteSchri']      = naechste;
 
     await schreibeStatusEintrag(felder);
 
