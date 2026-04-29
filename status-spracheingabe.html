@@ -347,9 +347,10 @@ function getProjektGraphId() {
 //  STATUS TAGEBUCH EINTRAG SCHREIBEN (Microsoft Graph API)
 // ════════════════════════════════════════════════════════════════════════════
 async function schreibeStatusEintrag(felder) {
-  const sid   = await getGraphSiteId();
-  const token = await getToken();
-  const resp  = await fetch(`${GRAPH}/sites/${sid}/lists/${LIST_TAG}/items`, {
+  const sid    = await getGraphSiteId();
+  const token  = await getToken();
+  const listId = await getListGuid(sid, token, LIST_TAG);
+  const resp   = await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`, {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields: felder })
@@ -368,14 +369,15 @@ async function schreibeStatusEintrag(felder) {
 async function aktualisiereProjectStatus(projektGraphId, ampel, fortschritt) {
   if (!projektGraphId) return;
   try {
-    const sid   = await getGraphSiteId();
-    const token = await getToken();
+    const sid    = await getGraphSiteId();
+    const token  = await getToken();
+    const listId = await getListGuid(sid, token, LIST_PROJ);
     const update = {};
     if (SP_PROJ.ampelstatus)   update[SP_PROJ.ampelstatus]   = ampel;
     if (SP_PROJ.fortschritt)   update[SP_PROJ.fortschritt]   = fortschritt;
     if (SP_PROJ.letztesUpdate) update[SP_PROJ.letztesUpdate] = new Date().toISOString().split('T')[0] + 'T00:00:00Z';
     if (!Object.keys(update).length) return;
-    await fetch(`${GRAPH}/sites/${sid}/lists/${LIST_PROJ}/items/${projektGraphId}/fields`, {
+    await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${projektGraphId}/fields`, {
       method: 'PATCH',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify(update)
