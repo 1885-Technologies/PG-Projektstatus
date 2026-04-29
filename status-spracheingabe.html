@@ -350,10 +350,35 @@ async function schreibeStatusEintrag(felder) {
   const sid    = await getGraphSiteId();
   const token  = await getToken();
   const listId = await getListGuid(sid, token, LIST_TAG);
-  const resp   = await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`, {
+
+  // Feldnamen aus bestehendem Eintrag ermitteln (Graph API ist strikt bei Namen)
+  let validFields = null;
+  try {
+    const sample = await fetch(
+      `${GRAPH}/sites/${sid}/lists/${listId}/items?$expand=fields&$top=1`,
+      { headers: { 'Authorization': 'Bearer ' + token } }
+    );
+    const sd = await sample.json();
+    if (sd.value?.[0]?.fields) {
+      validFields = Object.keys(sd.value[0].fields);
+      console.log('Gültige Felder (Status-Tagebuch):', validFields.join(', '));
+    }
+  } catch(e) { console.warn('Sample-Read fehlgeschlagen:', e.message); }
+
+  // Nur bekannte Felder senden (unbekannte überspringen + loggen)
+  const cleanFelder = {};
+  Object.entries(felder).forEach(([k, v]) => {
+    if (!validFields || validFields.includes(k) || k === 'Title') {
+      cleanFelder[k] = v;
+    } else {
+      console.warn(`Feld übersprungen (nicht erkannt): "${k}" = "${v}"`);
+    }
+  });
+
+  const resp = await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`, {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields: felder })
+    body: JSON.stringify({ fields: cleanFelder })
   });
   if (!resp.ok) {
     const txt = await resp.text().catch(() => '');
