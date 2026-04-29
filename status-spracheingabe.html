@@ -375,6 +375,7 @@ async function schreibeStatusEintrag(felder) {
     }
   });
 
+  console.log('POST felder:', JSON.stringify(cleanFelder));
   const resp = await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`, {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -382,7 +383,13 @@ async function schreibeStatusEintrag(felder) {
   });
   if (!resp.ok) {
     const txt = await resp.text().catch(() => '');
-    let msg = txt; try { msg = JSON.parse(txt).error?.message || txt; } catch {}
+    console.error('POST Fehler Response:', txt);
+    let msg = txt;
+    try {
+      const j = JSON.parse(txt);
+      msg = j.error?.message || j.error?.code || txt;
+      if (j.error?.innererror?.message) msg += ' | ' + j.error.innererror.message;
+    } catch {}
     throw new Error(`HTTP ${resp.status}: ${msg}`);
   }
   return resp.json();
