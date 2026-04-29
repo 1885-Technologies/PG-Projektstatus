@@ -107,7 +107,6 @@
       <button class="user-btn" data-user="Lucia"    onclick="selectUser(this)">Lucia</button>
     </div>
   </div>
-  <!-- Projekt-Card: zeigt Login-Button bis Anmeldung -->
   <div class="card" id="projekt-card">
     <div class="field-label">🏗️ Projekt <span class="required">*</span></div>
     <button class="login-btn" onclick="ladeProjekte()">
@@ -151,15 +150,40 @@
   <button id="submit-btn" class="submit-btn" onclick="submitStatus()">💾 Status in SharePoint speichern</button>
 </div>
 <script>
-const SP_BASE   = 'https://grossbau.sharepoint.com';
-const SITE_URL  = SP_BASE + '/sites/ProgrammHubDigitalisierungKIAutomationInnovation';
-const LIST_PROJ = 'ProjektStamm';
-const LIST_TAG  = 'StatusTagebuch';
-const SP = {
-  title: 'Title', projekt: 'Projekt', datum: 'Datum', ampelstatus: 'Ampelstatus',
-  fortschritt: 'Fortschritt', wasWurdeErreicht: 'Was_x0020_wurde_x0020_erreicht', naechsteSchritte: null
+// ════════════════════════════════════════════════════════════════════════════
+//  KONFIGURATION
+// ════════════════════════════════════════════════════════════════════════════
+const GRAPH        = 'https://graph.microsoft.com/v1.0';
+const SP_HOST      = 'grossbau.sharepoint.com';
+const SITE_PATH    = '/sites/ProgrammHubDigitalisierungKIAutomationInnovation';
+const LIST_PROJ    = 'ProjektStamm';
+const LIST_TAG     = 'StatusTagebuch';
+
+// Microsoft Graph Scopes (funktioniert für externe/B2B-Nutzer)
+const GRAPH_SCOPES = ['https://graph.microsoft.com/Sites.ReadWrite.All'];
+
+// Spaltennamen StatusTagebuch
+const SP_TAG = {
+  title:            'Title',
+  projekt:          'Projekt',
+  datum:            'Datum',
+  ampelstatus:      'Ampelstatus',
+  fortschritt:      'Fortschritt',
+  wasWurdeErreicht: 'Was_x0020_wurde_x0020_erreicht',
+  naechsteSchritte: null,
 };
 
+// Spaltennamen Projekt-Stamm (für automatische Aktualisierung)
+// Falls Fehlermeldung erscheint → F12 → debugProjektFields() aufrufen
+const SP_PROJ = {
+  ampelstatus:   'Ampelstatus',
+  fortschritt:   'Fortschritt',
+  letztesUpdate: null,  // z.B. 'Letztes_x0020_Update' — nach debugProjektFields() eintragen
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+//  MSAL KONFIGURATION
+// ════════════════════════════════════════════════════════════════════════════
 const MSAL_CONFIG = {
   auth: {
     clientId:    '89d91781-f0ec-4324-b113-7bd1562d6f68',
@@ -168,14 +192,13 @@ const MSAL_CONFIG = {
   },
   cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
 };
-const SP_SCOPES = [SP_BASE + '/AllSites.Write'];
 let msalInstance = null;
+let graphSiteId  = null;
 
 async function initMSAL() {
   if (msalInstance) return;
   msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
   await msalInstance.initialize();
-  // Redirect-Response verarbeiten (nach Login-Weiterleitung)
   const response = await msalInstance.handleRedirectPromise();
   if (response) updateAuthBar(response.account);
 }
@@ -185,14 +208,12 @@ async function getToken() {
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length > 0) {
     try {
-      const r = await msalInstance.acquireTokenSilent({ scopes: SP_SCOPES, account: accounts[0] });
+      const r = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: accounts[0] });
       updateAuthBar(accounts[0]);
       return r.accessToken;
     } catch (e) { console.log('Silent fehlgeschlagen, Redirect …'); }
   }
-  // Redirect-Flow: Seite leitet zu Microsoft weiter, kommt nach Login zurück
-  await msalInstance.acquireTokenRedirect({ scopes: SP_SCOPES });
-  // Diese Zeile wird nie erreicht — Seite navigiert weg
+  await msalInstance.acquireTokenRedirect({ scopes: GRAPH_SCOPES });
   throw new Error('Redirect läuft …');
 }
 
@@ -200,7 +221,8 @@ function updateAuthBar(account) {
   const bar = document.getElementById('auth-bar');
   if (bar && account) {
     bar.style.display = 'flex';
-    document.getElementById('auth-user').textContent = '🔐 Angemeldet als ' + (account.name || account.username);
+    document.getElementById('auth-user').textContent =
+      '🔐 Angemeldet als ' + (account.name || account.username);
   }
 }
 
@@ -208,6 +230,7 @@ async function signOut() {
   await initMSAL();
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length > 0) {
+    graphSiteId = null;
     await msalInstance.logoutPopup({ account: accounts[0] });
     document.getElementById('auth-bar').style.display = 'none';
     document.getElementById('projekt-card').innerHTML = `
@@ -216,36 +239,65 @@ async function signOut() {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+//  MICROSOFT GRAPH — SITE ID
+// ════════════════════════════════════════════════════════════════════════════
+async function getGraphSiteId() {
+  if (graphSiteId) return graphSiteId;
+  const token = await getToken();
+  const resp = await fetch(`${GRAPH}/sites/${SP_HOST}:${SITE_PATH}`, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  if (!resp.ok) throw new Error(`Site ID: HTTP ${resp.status}`);
+  const data = await resp.json();
+  graphSiteId = data.id;
+  return graphSiteId;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════════════════════
 let selectedUser = '', selectedAmpel = '', activeRecog = null, activeField = null;
 
+// ════════════════════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
-  // MSAL initialisieren & Redirect-Response verarbeiten (falls von Microsoft zurückgeleitet)
   await initMSAL();
-
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     document.querySelectorAll('.no-speech').forEach(el => el.style.display = 'block');
     document.querySelectorAll('.mic-btn').forEach(el => el.disabled = true);
   }
-  // Projekte automatisch laden wenn bereits eingeloggt (Session oder nach Redirect-Login)
   if (msalInstance.getAllAccounts().length > 0) await ladeProjekte();
 });
 
+// ════════════════════════════════════════════════════════════════════════════
+//  PROJEKTE LADEN (Microsoft Graph API)
+// ════════════════════════════════════════════════════════════════════════════
 async function ladeProjekte() {
   const card = document.getElementById('projekt-card');
   card.innerHTML = `<div class="field-label">🏗️ Projekt <span class="required">*</span></div>
-    <select id="projekt-select" class="sp-select" disabled><option>⏳ Wird geladen …</option></select>`;
+    <select id="projekt-select" class="sp-select" disabled><option>⏳ Projekte werden geladen …</option></select>`;
   try {
+    const sid   = await getGraphSiteId();
     const token = await getToken();
-    const resp  = await fetch(`${SITE_URL}/_api/web/lists/getByTitle('${LIST_PROJ}')/items?$select=Id,Title&$orderby=Title asc&$top=500`, {
-      headers: { 'Accept': 'application/json;odata=verbose', 'Authorization': 'Bearer ' + token }
-    });
+    const resp  = await fetch(
+      `${GRAPH}/sites/${sid}/lists/${LIST_PROJ}/items?expand=fields(select=id,Title)&$top=500`,
+      { headers: { 'Authorization': 'Bearer ' + token } }
+    );
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data     = await resp.json();
-    const projekte = data.d.results;
-    const select   = document.getElementById('projekt-select');
+    const projekte = (data.value || []).sort((a,b) =>
+      (a.fields.Title||'').localeCompare(b.fields.Title||''));
+    const select = document.getElementById('projekt-select');
     select.innerHTML = '<option value="">— Bitte Projekt wählen —</option>';
-    projekte.forEach(p => { const o = document.createElement('option'); o.value = p.Id; o.textContent = p.Title; select.appendChild(o); });
-    if (!projekte.length) select.innerHTML = '<option>— Keine Projekte —</option>';
+    projekte.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value       = p.id;            // Graph Item-ID für spätere Aktualisierung
+      opt.textContent = p.fields.Title;
+      select.appendChild(opt);
+    });
+    if (!projekte.length) select.innerHTML = '<option>— Keine Projekte vorhanden —</option>';
     select.disabled = false;
   } catch (err) {
     console.error('Projekte laden:', err);
@@ -261,27 +313,66 @@ function getProjektTitel() {
   const txt = document.getElementById('projekt-text');
   if (txt) return txt.value.trim();
   if (!sel || !sel.value) return '';
-  return sel.options[sel.selectedIndex].text;
+  return sel.options[sel.selectedIndex].textContent;
+}
+function getProjektGraphId() {
+  const sel = document.getElementById('projekt-select');
+  if (!sel || !sel.value) return null;
+  return sel.value;
 }
 
-async function schreibeEintrag(felder) {
+// ════════════════════════════════════════════════════════════════════════════
+//  STATUS TAGEBUCH EINTRAG SCHREIBEN (Microsoft Graph API)
+// ════════════════════════════════════════════════════════════════════════════
+async function schreibeStatusEintrag(felder) {
+  const sid   = await getGraphSiteId();
   const token = await getToken();
-  const resp  = await fetch(`${SITE_URL}/_api/web/lists/getByTitle('${LIST_TAG}')/items`, {
+  const resp  = await fetch(`${GRAPH}/sites/${sid}/lists/${LIST_TAG}/items`, {
     method: 'POST',
-    headers: { 'Accept': 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose', 'Authorization': 'Bearer ' + token },
-    body: JSON.stringify({ __metadata: { type: `SP.Data.${LIST_TAG}ListItem` }, ...felder })
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: felder })
   });
   if (!resp.ok) {
     const txt = await resp.text().catch(() => '');
-    let msg = txt; try { msg = JSON.parse(txt).error?.message?.value || txt; } catch {}
+    let msg = txt; try { msg = JSON.parse(txt).error?.message || txt; } catch {}
     throw new Error(`HTTP ${resp.status}: ${msg}`);
   }
   return resp.json();
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+//  PROJEKT-STAMM AKTUALISIEREN (automatisch nach Status-Speicherung)
+// ════════════════════════════════════════════════════════════════════════════
+async function aktualisiereProjectStatus(projektGraphId, ampel, fortschritt) {
+  if (!projektGraphId) return;
+  try {
+    const sid   = await getGraphSiteId();
+    const token = await getToken();
+    const update = {};
+    if (SP_PROJ.ampelstatus)   update[SP_PROJ.ampelstatus]   = ampel;
+    if (SP_PROJ.fortschritt)   update[SP_PROJ.fortschritt]   = fortschritt;
+    if (SP_PROJ.letztesUpdate) update[SP_PROJ.letztesUpdate] = new Date().toISOString().split('T')[0] + 'T00:00:00Z';
+    if (!Object.keys(update).length) return;
+    await fetch(`${GRAPH}/sites/${sid}/lists/${LIST_PROJ}/items/${projektGraphId}/fields`, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(update)
+    });
+    console.log('✅ Projekt-Stamm aktualisiert');
+  } catch (e) {
+    console.warn('Projekt-Stamm Update fehlgeschlagen (nicht kritisch):', e.message);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  UI
+// ════════════════════════════════════════════════════════════════════════════
 function selectUser(btn) { document.querySelectorAll('.user-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); selectedUser=btn.dataset.user; }
 function selectAmpel(btn) { document.querySelectorAll('.ampel-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); selectedAmpel=btn.dataset.val; }
 
+// ════════════════════════════════════════════════════════════════════════════
+//  SPRACHEINGABE
+// ════════════════════════════════════════════════════════════════════════════
 function toggleMic(fieldId) {
   if (activeField===fieldId && activeRecog) { activeRecog.stop(); return; }
   if (activeRecog) activeRecog.stop();
@@ -296,6 +387,9 @@ function toggleMic(fieldId) {
 }
 function cleanup(f){const b=document.getElementById('mic-'+f);if(b){b.classList.remove('recording');b.textContent='🎙️';}activeField=null;activeRecog=null;}
 
+// ════════════════════════════════════════════════════════════════════════════
+//  SUBMIT — speichert StatusTagebuch UND aktualisiert Projekt-Stamm
+// ════════════════════════════════════════════════════════════════════════════
 function validate() {
   if (!selectedUser)      { showBanner('error','⚠️ Bitte Benutzer auswählen.'); return false; }
   if (!getProjektTitel()) { showBanner('error','⚠️ Bitte Projekt auswählen.'); return false; }
@@ -308,20 +402,37 @@ async function submitStatus() {
   const btn=document.getElementById('submit-btn'); btn.disabled=true;
   showBanner('sending','<div class="spinner"></div> Wird in SharePoint gespeichert …');
   try {
-    const heute=new Date(), felder={};
-    felder[SP.title]=`${selectedUser} – ${getProjektTitel()} – ${heute.toLocaleDateString('de-DE')}`;
-    felder[SP.datum]=heute.toISOString().split('T')[0]+'T00:00:00Z';
-    felder[SP.ampelstatus]=selectedAmpel; felder[SP.projekt]=getProjektTitel();
-    if(SP.fortschritt) felder[SP.fortschritt]=parseInt(document.getElementById('fortschritt').value,10);
-    const st=document.getElementById('statustext').value.trim();
-    if(SP.wasWurdeErreicht&&st) felder[SP.wasWurdeErreicht]=st;
-    const ns=document.getElementById('naechsteschritte').value.trim();
-    if(SP.naechsteSchritte&&ns) felder[SP.naechsteSchritte]=ns;
-    await schreibeEintrag(felder);
-    showBanner('success',`✅ Eintrag gespeichert! <a href="${SITE_URL}/Lists/${LIST_TAG}/AllItems.aspx" target="_blank" style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch öffnen →</a>`);
+    const heute        = new Date();
+    const projektTitel = getProjektTitel();
+    const projektId    = getProjektGraphId();
+    const fortschritt  = parseInt(document.getElementById('fortschritt').value, 10);
+    const statustext   = document.getElementById('statustext').value.trim();
+    const naechste     = document.getElementById('naechsteschritte').value.trim();
+
+    // 1. StatusTagebuch-Eintrag erstellen
+    const felder = {};
+    felder[SP_TAG.title]       = `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`;
+    felder[SP_TAG.datum]       = heute.toISOString().split('T')[0] + 'T00:00:00Z';
+    felder[SP_TAG.ampelstatus] = selectedAmpel;
+    felder[SP_TAG.projekt]     = projektTitel;
+    if (SP_TAG.fortschritt)      felder[SP_TAG.fortschritt]      = fortschritt;
+    if (SP_TAG.wasWurdeErreicht && statustext) felder[SP_TAG.wasWurdeErreicht] = statustext;
+    if (SP_TAG.naechsteSchritte && naechste)   felder[SP_TAG.naechsteSchritte] = naechste;
+
+    await schreibeStatusEintrag(felder);
+
+    // 2. Projekt-Stamm automatisch aktualisieren
+    await aktualisiereProjectStatus(projektId, selectedAmpel, fortschritt);
+
+    showBanner('success',
+      `✅ Status gespeichert & Projekt-Stamm aktualisiert! ` +
+      `<a href="https://${SP_HOST}${SITE_PATH}/Lists/${LIST_TAG}/AllItems.aspx" target="_blank" ` +
+      `style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch →</a>`);
     resetForm();
-  } catch(err) { console.error(err); showBanner('error',`❌ ${err.message}`); }
-  finally { btn.disabled=false; }
+  } catch (err) {
+    console.error(err);
+    showBanner('error', `❌ ${err.message}`);
+  } finally { btn.disabled = false; }
 }
 
 function showBanner(type,html){const el=document.getElementById('status-banner');el.className='status-banner show '+type;el.innerHTML=html;el.scrollIntoView({behavior:'smooth',block:'nearest'});if(type==='success')setTimeout(()=>el.classList.remove('show'),9000);}
@@ -329,11 +440,29 @@ function showBanner(type,html){const el=document.getElementById('status-banner')
 function resetForm(){
   selectedUser='';selectedAmpel='';
   document.querySelectorAll('.user-btn,.ampel-btn').forEach(b=>b.classList.remove('selected'));
-  const s=document.getElementById('projekt-select');if(s)s.selectedIndex=0;
-  const t=document.getElementById('projekt-text');if(t)t.value='';
+  const sel=document.getElementById('projekt-select');if(sel)sel.selectedIndex=0;
+  const txt=document.getElementById('projekt-text');if(txt)txt.value='';
   document.getElementById('fortschritt').value=0; document.getElementById('f-val').textContent='0 %';
   document.getElementById('statustext').value=''; document.getElementById('naechsteschritte').value='';
   document.querySelectorAll('.mic-hint').forEach(h=>h.textContent='🎙️ Mikrofon-Button drücken und sprechen');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  DEBUG — Feldnamen in Konsole ausgeben (F12 → debugProjektFields())
+// ════════════════════════════════════════════════════════════════════════════
+async function debugProjektFields() {
+  const sid = await getGraphSiteId();
+  const token = await getToken();
+  for (const list of [LIST_PROJ, LIST_TAG]) {
+    const r = await fetch(`${GRAPH}/sites/${sid}/lists/${list}/columns`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    console.log(`\n📋 ${list}:\n` +
+      (d.value||[]).filter(c=>!c.hidden && !c.readOnly)
+       .map(c=>`  ${c.name.padEnd(40)} "${c.displayName}"`)
+       .join('\n'));
+  }
 }
 </script>
 </body>
