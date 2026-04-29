@@ -284,10 +284,9 @@ async function getListGuid(sid, token, searchName) {
   if (!resp.ok) throw new Error(`Listen abrufen: HTTP ${resp.status}`);
   const data = await resp.json();
   console.log('Verfügbare Listen:', (data.value||[]).map(l=>l.displayName).join(', '));
-  const list = (data.value||[]).find(l =>
-    l.displayName.replace(/[-_\s]/g,'').toLowerCase() ===
-    searchName.replace(/[-_\s]/g,'').toLowerCase()
-  );
+  // Alle Nicht-Buchstaben/Ziffern entfernen (inkl. Sonder-Bindestriche, En-Dash etc.)
+  const norm = s => s.replace(/[^a-z0-9äöüß]/gi,'').toLowerCase();
+  const list = (data.value||[]).find(l => norm(l.displayName) === norm(searchName));
   if (!list) throw new Error(`Liste "${searchName}" nicht gefunden`);
   listGuids[searchName] = list.id;
   return list.id;
