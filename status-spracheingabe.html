@@ -272,6 +272,28 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════
+//  LISTEN-GUIDS ERMITTELN (robust, unabhängig vom genauen Listennamen)
+// ════════════════════════════════════════════════════════════════════════════
+let listGuids = {};  // { ProjektStamm: 'guid...', StatusTagebuch: 'guid...' }
+
+async function getListGuid(sid, token, searchName) {
+  if (listGuids[searchName]) return listGuids[searchName];
+  const resp = await fetch(`${GRAPH}/sites/${sid}/lists`, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  if (!resp.ok) throw new Error(`Listen abrufen: HTTP ${resp.status}`);
+  const data = await resp.json();
+  console.log('Verfügbare Listen:', (data.value||[]).map(l=>l.displayName).join(', '));
+  const list = (data.value||[]).find(l =>
+    l.displayName.replace(/[-_\s]/g,'').toLowerCase() ===
+    searchName.replace(/[-_\s]/g,'').toLowerCase()
+  );
+  if (!list) throw new Error(`Liste "${searchName}" nicht gefunden`);
+  listGuids[searchName] = list.id;
+  return list.id;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 //  PROJEKTE LADEN (Microsoft Graph API)
 // ════════════════════════════════════════════════════════════════════════════
 async function ladeProjekte() {
@@ -279,22 +301,23 @@ async function ladeProjekte() {
   card.innerHTML = `<div class="field-label">🏗️ Projekt <span class="required">*</span></div>
     <select id="projekt-select" class="sp-select" disabled><option>⏳ Projekte werden geladen …</option></select>`;
   try {
-    const sid   = await getGraphSiteId();
-    const token = await getToken();
-    const resp  = await fetch(
-      `${GRAPH}/sites/${sid}/lists/${LIST_PROJ}/items?expand=fields(select=id,Title)&$top=500`,
+    const sid    = await getGraphSiteId();
+    const token  = await getToken();
+    const listId = await getListGuid(sid, token, LIST_PROJ);
+    const resp   = await fetch(
+      `${GRAPH}/sites/${sid}/lists/${listId}/items?$expand=fields($select=Title)&$top=500`,
       { headers: { 'Authorization': 'Bearer ' + token } }
     );
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data     = await resp.json();
     const projekte = (data.value || []).sort((a,b) =>
-      (a.fields.Title||'').localeCompare(b.fields.Title||''));
+      (a.fields?.Title||'').localeCompare(b.fields?.Title||''));
     const select = document.getElementById('projekt-select');
     select.innerHTML = '<option value="">— Bitte Projekt wählen —</option>';
     projekte.forEach(p => {
       const opt = document.createElement('option');
-      opt.value       = p.id;            // Graph Item-ID für spätere Aktualisierung
-      opt.textContent = p.fields.Title;
+      opt.value       = p.id;
+      opt.textContent = p.fields?.Title || '(kein Titel)';
       select.appendChild(opt);
     });
     if (!projekte.length) select.innerHTML = '<option>— Keine Projekte vorhanden —</option>';
