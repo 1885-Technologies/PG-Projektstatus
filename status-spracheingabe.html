@@ -460,14 +460,12 @@ async function submitStatus() {
 
     // 1. StatusTagebuch-Eintrag erstellen
     const felder = {};
-    felder['Title']                          = `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`;
-    felder['Datum']                          = heute.toISOString().split('T')[0];  // Nur Datum, kein Z
+    // Minimal-Test: Zuerst nur Title, dann schrittweise erweitern
+    felder['Title'] = `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`;
+    felder['Datum'] = heute.toISOString();  // Vollständiges ISO-Format
     felder['Ampelstatus_x0028_heute_x0029_'] = selectedAmpel;
-    felder['Fortschritt_x0025_']             = fortschritt;
-    if (statustext) felder['Waswurdeerreicht_x003f_']           = statustext;
-    if (naechste)   felder['_x27a1__xfe0f_N_x00e4_chsteSchri'] = naechste;
-    // ProjektLookupId vorerst weggelassen (Lookup-Format klären)
-    // felder['ProjektLookupId'] = parseInt(projektId);
+    felder['Fortschritt_x0025_'] = fortschritt;
+    if (statustext) felder['Waswurdeerreicht_x003f_'] = statustext;
 
     await schreibeStatusEintrag(felder);
 
