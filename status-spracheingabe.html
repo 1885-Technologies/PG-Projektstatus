@@ -240,45 +240,20 @@ async function submitStatus(){
     console.log('Schreib-Namen:',{ampel:ampelName,fort:fortName,was:wasName,naxt:naxtName});
     console.log('col.names:',{ampel:ampelName,fort:fortName,was:wasName,naxt:naxtName});
 
-    // SCHRITT 1: POST mit Title + Datum (bekannte Pflichtfelder, funktioniert zuverlässig)
-    const basisFelder = {
+    // SINGLE POST mit allen Feldern auf einmal
+    const alleFelder = {
       Title: `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`,
       Datum: heute.toISOString().split('T')[0]+'T00:00:00Z'
     };
-    console.log('POST (Basis):',JSON.stringify(basisFelder));
-    const postResp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:basisFelder})});
-    if(!postResp.ok){const t=await postResp.text().catch(()=>'');let m=t;try{m=JSON.parse(t).error?.message||t;}catch{}throw new Error(`POST HTTP ${postResp.status}: ${m}`);}
+    if(ampelName && selectedAmpel)  alleFelder[ampelName] = [selectedAmpel]; // Multi-Choice → Array
+    if(fortName)                    alleFelder[fortName]  = fortschritt;
+    if(wasName && statustext)       alleFelder[wasName]   = statustext;
+    if(naxtName && naechste)        alleFelder[naxtName]  = naechste;
+    console.log('POST (alle Felder):',JSON.stringify(alleFelder));
+    const postResp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:alleFelder})});
+    if(!postResp.ok){const t=await postResp.text().catch(()=>'');let m=t;try{m=JSON.parse(t).error?.message||t;}catch{}throw new Error(`POST (${postResp.status}): ${m}`);}
     const newItem=await postResp.json();
-    const newItemId=newItem.id;
-    console.log('✅ Basis gespeichert, Item-ID:',newItemId);
-
-    // SCHRITT 2: PATCH mit Zusatzfeldern (werden nachträglich geschrieben)
-    const patchFelder={};
-    if(ampelName)                    patchFelder[ampelName]=selectedAmpel;
-    if(fortName)                     patchFelder[fortName]=fortschritt;
-    if(wasName&&statustext)          patchFelder[wasName]=statustext;
-    if(naxtName&&naechste)           patchFelder[naxtName]=naechste;
-
-    // PATCH: Spalten aus Column-Definitions direkt ansprechen
-    const patchBody={};
-    // Jede gefundene Spalte direkt schreiben
-    // Nur Felder ohne Emoji-Kodierung im Namen → sicherer für PATCH
-    // Multi-Choice-Feld → Array übergeben
-    if(ampelName && selectedAmpel && !ampelName.startsWith('_x')) patchBody[ampelName]=[selectedAmpel];
-    if(fortName  && !fortName.startsWith('_x'))                   patchBody[fortName]=fortschritt;
-    if(wasName   && statustext && !wasName.startsWith('_x'))      patchBody[wasName]=statustext;
-    // Nächste Schritte: Emoji-Kodierung im Namen → in Title stattdessen einbauen
-    console.log('PATCH body:',JSON.stringify(patchBody));
-    if(Object.keys(patchBody).length>0){
-      // Versuche PATCH auf Item-Ebene (nicht /fields) — breitere Kompatibilität
-      const pr=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${newItemId}`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:patchBody})});
-      if(!pr.ok){
-        const errTxt=await pr.text().catch(()=>'');
-        let errMsg=errTxt;try{errMsg=JSON.parse(errTxt).error?.message||errTxt;}catch{}
-        throw new Error(`PATCH (${pr.status}): ${errMsg}`);
-      }
-      console.log('✅ Felder gespeichert');
-    }
+    console.log('✅ Status-Eintrag gespeichert, Item-ID:',newItem.id);
 
     await aktualisiereProjectStatus(projektId,selectedAmpel,fortschritt);
     // URL-Pfad der Liste (interner Name ohne Sonderzeichen)
