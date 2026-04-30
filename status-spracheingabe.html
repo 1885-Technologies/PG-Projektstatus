@@ -260,12 +260,26 @@ async function submitStatus(){
     if(Object.keys(patchFelder).length>0){
       console.log('PATCH (Zusatz):',JSON.stringify(patchFelder));
       const patchResp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${newItemId}/fields`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(patchFelder)});
-      if(!patchResp.ok){const t=await patchResp.text().catch(()=>'');console.warn('PATCH Felder fehlgeschlagen (nicht kritisch):',t);}
-      else console.log('✅ Zusatzfelder gespeichert');
+      if(!patchResp.ok){
+        const t=await patchResp.text().catch(()=>'');
+        console.warn('PATCH Felder fehlgeschlagen:',t);
+        // Zweiter Versuch: direkte Feldnamen aus GET-Response verwenden
+        // (Leseschlüssel statt col.name)
+        const fallbackPatch={};
+        if(selectedAmpel) fallbackPatch['Ampelstatus_x0028_heute_x0029_']=selectedAmpel;
+        if(fortschritt)   fallbackPatch['Fortschritt_x0025_']=fortschritt;
+        if(statustext)    fallbackPatch['Waswurdeerreicht_x003f_']=statustext;
+        if(naechste)      fallbackPatch['_x27a1__xfe0f_N_x00e4_chsteSchri']=naechste;
+        console.log('PATCH Fallback:',JSON.stringify(fallbackPatch));
+        const patch2=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${newItemId}/fields`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(fallbackPatch)});
+        if(!patch2.ok){const t2=await patch2.text().catch(()=>'');console.error('PATCH Fallback fehlgeschlagen:',t2);}
+        else console.log('✅ Zusatzfelder (Fallback) gespeichert');
+      } else console.log('✅ Zusatzfelder gespeichert');
     }
 
     await aktualisiereProjectStatus(projektId,selectedAmpel,fortschritt);
-    showBanner('success',`✅ Status gespeichert! <a href="https://${SP_HOST}${SITE_PATH}/Lists/${LIST_TAG}/AllItems.aspx" target="_blank" style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch →</a>`);
+    // URL-Pfad der Liste (interner Name ohne Sonderzeichen)
+    showBanner('success',`✅ Status gespeichert! <a href="https://${SP_HOST}${SITE_PATH}/Lists/StatusTagebuch/AllItems.aspx" target="_blank" style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch →</a>`);
     resetForm();
   }catch(err){console.error(err);showBanner('error',`❌ ${err.message}`);}
   finally{btn.disabled=false;}
