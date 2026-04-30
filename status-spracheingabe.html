@@ -245,10 +245,11 @@ async function submitStatus(){
       Title: `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`,
       Datum: heute.toISOString().split('T')[0]+'T00:00:00Z'
     };
-    if(ampelName && selectedAmpel)  alleFelder[ampelName] = [selectedAmpel]; // Multi-Choice → Array
+    if(ampelName && selectedAmpel)  alleFelder[ampelName] = selectedAmpel; // Choice → plain string
     if(fortName)                    alleFelder[fortName]  = fortschritt;
     if(wasName && statustext)       alleFelder[wasName]   = statustext;
-    if(naxtName && naechste)        alleFelder[naxtName]  = naechste;
+    // Nächste Schritte: emoji-kodierter Feldname → separat via PATCH nach erfolgreichem POST
+    // (wird vorerst übersprungen um den POST nicht zu brechen)
     console.log('POST (alle Felder):',JSON.stringify(alleFelder));
     const postResp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:alleFelder})});
     if(!postResp.ok){const t=await postResp.text().catch(()=>'');let m=t;try{m=JSON.parse(t).error?.message||t;}catch{}throw new Error(`POST (${postResp.status}): ${m}`);}
