@@ -6,42 +6,27 @@
   <title>🎙️ Status-Tagebuch Spracheingabe</title>
   <script src="https://alcdn.msauth.net/browser/2.32.2/js/msal-browser.min.js"></script>
   <style>
-    :root {
-      --primary: #0078d4; --primary-dark: #005a9e; --success: #107c10;
-      --danger: #d13438; --bg: #f3f2f1; --card: #ffffff;
-      --border: #e1dfdd; --text: #323130; --muted: #605e5c; --radius: 8px;
-    }
+    :root { --primary: #0078d4; --primary-dark: #005a9e; --success: #107c10; --danger: #d13438; --bg: #f3f2f1; --card: #ffffff; --border: #e1dfdd; --text: #323130; --muted: #605e5c; --radius: 8px; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text);
-      min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px 64px; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px 64px; }
     .container { width: 100%; max-width: 680px; }
     .header { text-align: center; margin-bottom: 28px; }
     .header h1 { font-size: 1.6rem; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
     .header p  { color: var(--muted); font-size: 0.92rem; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
-    .field-label { font-size: 0.82rem; font-weight: 600; color: var(--muted); text-transform: uppercase;
-      letter-spacing: .04em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+    .field-label { font-size: 0.82rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
     .field-label .required { color: var(--danger); }
     .user-grid { display: flex; gap: 10px; flex-wrap: wrap; }
-    .user-btn { flex: 1; min-width: 120px; padding: 10px 14px; border: 2px solid var(--border);
-      border-radius: var(--radius); background: transparent; cursor: pointer;
-      font-size: 0.95rem; font-family: inherit; font-weight: 600; color: var(--text); transition: all .15s; }
+    .user-btn { flex: 1; min-width: 120px; padding: 10px 14px; border: 2px solid var(--border); border-radius: var(--radius); background: transparent; cursor: pointer; font-size: 0.95rem; font-family: inherit; font-weight: 600; color: var(--text); transition: all .15s; }
     .user-btn:hover  { border-color: var(--primary); color: var(--primary); }
     .user-btn.selected { border-color: var(--primary); background: var(--primary); color: #fff; }
-    select.sp-select { width: 100%; padding: 10px 36px 10px 14px; border: 1.5px solid var(--border);
-      border-radius: var(--radius); font-family: inherit; font-size: 1rem; color: var(--text);
-      background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%23605e5c' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 12px center;
-      appearance: none; cursor: pointer; transition: border-color .15s; }
+    select.sp-select { width: 100%; padding: 10px 36px 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: inherit; font-size: 1rem; color: var(--text); background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%23605e5c' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 12px center; appearance: none; cursor: pointer; transition: border-color .15s; }
     select.sp-select:focus   { outline: none; border-color: var(--primary); background-color: #fff; }
     select.sp-select:disabled { opacity: 0.6; cursor: not-allowed; }
-    .text-input { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
-      border-radius: var(--radius); font-family: inherit; font-size: 1rem; color: var(--text);
-      background: var(--bg); transition: border-color .15s; }
+    .text-input { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius); font-family: inherit; font-size: 1rem; color: var(--text); background: var(--bg); transition: border-color .15s; }
     .text-input:focus { outline: none; border-color: var(--primary); background: #fff; }
     .ampel-grid { display: flex; gap: 10px; }
-    .ampel-btn { flex: 1; padding: 12px 8px; border: 2px solid var(--border); border-radius: var(--radius);
-      background: transparent; cursor: pointer; font-size: 1.5rem; text-align: center; transition: all .15s; }
+    .ampel-btn { flex: 1; padding: 12px 8px; border: 2px solid var(--border); border-radius: var(--radius); background: transparent; cursor: pointer; font-size: 1.5rem; text-align: center; transition: all .15s; }
     .ampel-btn span.label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--muted); margin-top: 4px; }
     .ampel-btn:hover { transform: scale(1.05); border-color: #999; }
     .ampel-btn[data-val="Kritisch"].selected { border-color: #cc1111; background: #fff0f0; }
@@ -52,52 +37,33 @@
     .fortschritt-val { min-width: 52px; text-align: center; font-size: 1.1rem; font-weight: 700; color: var(--primary); }
     .voice-field { position: relative; }
     textarea.text-input { resize: vertical; min-height: 88px; padding-right: 52px; }
-    .mic-btn { position: absolute; right: 10px; bottom: 10px; width: 36px; height: 36px;
-      border-radius: 50%; border: none; background: var(--primary); color: #fff; font-size: 1.1rem;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: background .15s; box-shadow: 0 2px 6px rgba(0,120,212,.35); }
+    .mic-btn { position: absolute; right: 10px; bottom: 10px; width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--primary); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; box-shadow: 0 2px 6px rgba(0,120,212,.35); }
     .mic-btn:hover { background: var(--primary-dark); }
     .mic-btn.recording { background: var(--danger); animation: pulse 1.1s infinite; }
     @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(209,52,56,.5)} 70%{box-shadow:0 0 0 10px rgba(209,52,56,0)} 100%{box-shadow:0 0 0 0 rgba(209,52,56,0)} }
     .mic-hint { font-size: 0.78rem; color: var(--muted); margin-top: 5px; }
-    .submit-btn { width: 100%; padding: 14px; border: none; border-radius: var(--radius);
-      background: var(--primary); color: #fff; font-family: inherit; font-size: 1.05rem; font-weight: 700;
-      cursor: pointer; transition: background .15s, transform .05s; }
+    .submit-btn { width: 100%; padding: 14px; border: none; border-radius: var(--radius); background: var(--primary); color: #fff; font-family: inherit; font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: background .15s, transform .05s; }
     .submit-btn:hover { background: var(--primary-dark); }
     .submit-btn:active { transform: scale(.99); }
     .submit-btn:disabled { background: #c8c6c4; cursor: not-allowed; }
-    .status-banner { padding: 14px 18px; border-radius: var(--radius); font-size: 0.95rem; font-weight: 500;
-      display: none; margin-bottom: 14px; }
+    .status-banner { padding: 14px 18px; border-radius: var(--radius); font-size: 0.95rem; font-weight: 500; display: none; margin-bottom: 14px; }
     .status-banner.show    { display: flex; align-items: center; gap: 10px; }
     .status-banner.success { background: #dff6dd; color: var(--success); border: 1px solid #bad9b5; }
     .status-banner.error   { background: #fde7e9; color: var(--danger);  border: 1px solid #f4b8bc; }
     .status-banner.sending { background: #e6f4ff; color: var(--primary); border: 1px solid #b3d7f5; }
-    .spinner { width: 18px; height: 18px; border: 3px solid currentColor; border-right-color: transparent;
-      border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+    .spinner { width: 18px; height: 18px; border: 3px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .no-speech { background: #fff8e1; border: 1px solid #ffe082; border-radius: var(--radius);
-      padding: 10px 14px; font-size: 0.85rem; color: #5d4037; margin-top: 6px; display: none; }
-    .auth-bar { background: #f0f7ff; border: 1px solid #b3d7f5; border-radius: var(--radius);
-      padding: 8px 14px; margin-bottom: 16px; font-size: 0.82rem; color: var(--muted);
-      display: flex; align-items: center; justify-content: space-between; }
-    .auth-bar .signout-btn { background: none; border: none; color: var(--primary);
-      cursor: pointer; font-size: 0.82rem; font-family: inherit; text-decoration: underline; padding: 0; }
-    .login-btn { width: 100%; padding: 12px; border: none; border-radius: var(--radius);
-      background: var(--primary); color: #fff; font-family: inherit; font-size: 1rem;
-      font-weight: 600; cursor: pointer; transition: background .15s; }
+    .no-speech { background: #fff8e1; border: 1px solid #ffe082; border-radius: var(--radius); padding: 10px 14px; font-size: 0.85rem; color: #5d4037; margin-top: 6px; display: none; }
+    .auth-bar { background: #f0f7ff; border: 1px solid #b3d7f5; border-radius: var(--radius); padding: 8px 14px; margin-bottom: 16px; font-size: 0.82rem; color: var(--muted); display: flex; align-items: center; justify-content: space-between; }
+    .auth-bar .signout-btn { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 0.82rem; font-family: inherit; text-decoration: underline; padding: 0; }
+    .login-btn { width: 100%; padding: 12px; border: none; border-radius: var(--radius); background: var(--primary); color: #fff; font-family: inherit; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background .15s; }
     .login-btn:hover { background: var(--primary-dark); }
   </style>
 </head>
 <body>
 <div class="container">
-  <div class="header">
-    <h1>🎙️ Status-Tagebuch</h1>
-    <p>Tagesstatus per Sprache oder Text direkt in SharePoint speichern</p>
-  </div>
-  <div id="auth-bar" class="auth-bar" style="display:none">
-    <span id="auth-user">🔐 Angemeldet als …</span>
-    <button class="signout-btn" onclick="signOut()">Abmelden</button>
-  </div>
+  <div class="header"><h1>🎙️ Status-Tagebuch</h1><p>Tagesstatus per Sprache oder Text direkt in SharePoint speichern</p></div>
+  <div id="auth-bar" class="auth-bar" style="display:none"><span id="auth-user">🔐 Angemeldet als …</span><button class="signout-btn" onclick="signOut()">Abmelden</button></div>
   <div id="status-banner" class="status-banner"></div>
   <div class="card">
     <div class="field-label">👤 Benutzer <span class="required">*</span></div>
@@ -109,9 +75,7 @@
   </div>
   <div class="card" id="projekt-card">
     <div class="field-label">🏗️ Projekt <span class="required">*</span></div>
-    <button class="login-btn" onclick="ladeProjekte()">
-      🔐 Mit Microsoft anmelden &amp; Projekte laden
-    </button>
+    <button class="login-btn" onclick="ladeProjekte()">🔐 Mit Microsoft anmelden &amp; Projekte laden</button>
   </div>
   <div class="card">
     <div class="field-label">🚦 Ampelstatus <span class="required">*</span></div>
@@ -124,8 +88,7 @@
   <div class="card">
     <div class="field-label">📊 Fortschritt %</div>
     <div class="fortschritt-row">
-      <input type="range" id="fortschritt" min="0" max="100" step="5" value="0"
-             oninput="document.getElementById('f-val').textContent = this.value + ' %'" />
+      <input type="range" id="fortschritt" min="0" max="100" step="5" value="0" oninput="document.getElementById('f-val').textContent = this.value + ' %'" />
       <div class="fortschritt-val" id="f-val">0 %</div>
     </div>
   </div>
@@ -150,291 +113,96 @@
   <button id="submit-btn" class="submit-btn" onclick="submitStatus()">💾 Status in SharePoint speichern</button>
 </div>
 <script>
-// ════════════════════════════════════════════════════════════════════════════
-//  KONFIGURATION
-// ════════════════════════════════════════════════════════════════════════════
-const GRAPH        = 'https://graph.microsoft.com/v1.0';
-const SP_HOST      = 'grossbau.sharepoint.com';
-const SITE_PATH    = '/sites/ProgrammHubDigitalisierungKIAutomationInnovation';
-const LIST_PROJ    = 'Projekt-Stamm';
-const LIST_TAG     = 'Status-Tagebuch';
+const GRAPH='https://graph.microsoft.com/v1.0',SP_HOST='grossbau.sharepoint.com',SITE_PATH='/sites/ProgrammHubDigitalisierungKIAutomationInnovation',LIST_PROJ='Projekt-Stamm',LIST_TAG='Status-Tagebuch',GRAPH_SCOPES=['https://graph.microsoft.com/Sites.ReadWrite.All'];
+const MSAL_CONFIG={auth:{clientId:'89d91781-f0ec-4324-b113-7bd1562d6f68',authority:'https://login.microsoftonline.com/66cca675-2e74-4161-bb72-ccc695c62857',redirectUri:window.location.origin+window.location.pathname},cache:{cacheLocation:'localStorage',storeAuthStateInCookie:true}};
+let msalInstance=null,graphSiteId=null,listGuids={},writableColsCache={};
 
-// Microsoft Graph Scopes (funktioniert für externe/B2B-Nutzer)
-const GRAPH_SCOPES = ['https://graph.microsoft.com/Sites.ReadWrite.All'];
+async function initMSAL(){if(msalInstance)return;msalInstance=new msal.PublicClientApplication(MSAL_CONFIG);await msalInstance.initialize();const r=await msalInstance.handleRedirectPromise();if(r)updateAuthBar(r.account);}
+async function getToken(){await initMSAL();const a=msalInstance.getAllAccounts();if(a.length>0){try{const r=await msalInstance.acquireTokenSilent({scopes:GRAPH_SCOPES,account:a[0]});updateAuthBar(a[0]);return r.accessToken;}catch{}}await msalInstance.acquireTokenRedirect({scopes:GRAPH_SCOPES});throw new Error('Redirect…');}
+function updateAuthBar(account){const bar=document.getElementById('auth-bar');if(bar&&account){bar.style.display='flex';document.getElementById('auth-user').textContent='🔐 Angemeldet als '+(account.name||account.username);}}
+async function signOut(){await initMSAL();const a=msalInstance.getAllAccounts();if(a.length>0){graphSiteId=null;listGuids={};writableColsCache={};await msalInstance.logoutPopup({account:a[0]});document.getElementById('auth-bar').style.display='none';document.getElementById('projekt-card').innerHTML='<div class="field-label">🏗️ Projekt <span class="required">*</span></div><button class="login-btn" onclick="ladeProjekte()">🔐 Mit Microsoft anmelden &amp; Projekte laden</button>';}}
+async function getGraphSiteId(){if(graphSiteId)return graphSiteId;const token=await getToken();const r=await fetch(`${GRAPH}/sites/${SP_HOST}:${SITE_PATH}`,{headers:{'Authorization':'Bearer '+token}});if(!r.ok)throw new Error(`Site ID: HTTP ${r.status}`);graphSiteId=(await r.json()).id;return graphSiteId;}
+async function getListGuid(sid,token,searchName){if(listGuids[searchName])return listGuids[searchName];const r=await fetch(`${GRAPH}/sites/${sid}/lists`,{headers:{'Authorization':'Bearer '+token}});if(!r.ok)throw new Error(`Listen: HTTP ${r.status}`);const data=await r.json();console.log('Listen:',(data.value||[]).map(l=>l.displayName).join(', '));const norm=s=>s.replace(/[^a-z0-9äöüß]/gi,'').toLowerCase();const list=(data.value||[]).find(l=>norm(l.displayName)===norm(searchName));if(!list)throw new Error(`Liste "${searchName}" nicht gefunden`);listGuids[searchName]=list.id;return list.id;}
 
-// Spaltennamen StatusTagebuch (echte Graph-API-Namen)
-const SP_TAG = {
-  title:            'Title',
-  projektLookupId:  'ProjektLookupId',        // Lookup-Feld → Integer-ID
-  datum:            'Datum',
-  ampelstatus:      'Ampelstatus_x0028_heute_x0029_',
-  fortschritt:      'Fortschritt_x0025_',
-  wasWurdeErreicht: 'Waswurdeerreicht_x003f_',
-  naechsteSchritte: '_x27a1__xfe0f_N_x00e4_chsteSchri',
-};
-
-// Spaltennamen Projekt-Stamm (für automatische Aktualisierung)
-// Falls Fehlermeldung erscheint → F12 → debugProjektFields() aufrufen
-const SP_PROJ = {
-  ampelstatus:   'Ampelstatus',
-  fortschritt:   'Fortschritt',
-  letztesUpdate: null,  // z.B. 'Letztes_x0020_Update' — nach debugProjektFields() eintragen
-};
-
-// ════════════════════════════════════════════════════════════════════════════
-//  MSAL KONFIGURATION
-// ════════════════════════════════════════════════════════════════════════════
-const MSAL_CONFIG = {
-  auth: {
-    clientId:    '89d91781-f0ec-4324-b113-7bd1562d6f68',
-    authority:   'https://login.microsoftonline.com/66cca675-2e74-4161-bb72-ccc695c62857',
-    redirectUri: window.location.origin + window.location.pathname
-  },
-  cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
-};
-let msalInstance = null;
-let graphSiteId  = null;
-
-async function initMSAL() {
-  if (msalInstance) return;
-  msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
-  await msalInstance.initialize();
-  const response = await msalInstance.handleRedirectPromise();
-  if (response) updateAuthBar(response.account);
+// Spalten-Definitionen holen (zeigt welche Felder wirklich schreibbar sind)
+async function getWritableCols(sid,token,listId,listName){
+  if(writableColsCache[listName])return writableColsCache[listName];
+  const r=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/columns`,{headers:{'Authorization':'Bearer '+token}});
+  if(!r.ok){console.warn('Columns API:',r.status);return null;}
+  const data=await r.json();
+  const writable={};
+  (data.value||[]).forEach(col=>{if(!col.readOnly&&!col.hidden)writable[col.name]=col;});
+  console.log('Schreibbare Spalten ('+listName+'):',Object.keys(writable).join(', '));
+  writableColsCache[listName]=writable;
+  return writable;
 }
 
-async function getToken() {
-  await initMSAL();
-  const accounts = msalInstance.getAllAccounts();
-  if (accounts.length > 0) {
-    try {
-      const r = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: accounts[0] });
-      updateAuthBar(accounts[0]);
-      return r.accessToken;
-    } catch (e) { console.log('Silent fehlgeschlagen, Redirect …'); }
-  }
-  await msalInstance.acquireTokenRedirect({ scopes: GRAPH_SCOPES });
-  throw new Error('Redirect läuft …');
-}
+let selectedUser='',selectedAmpel='',activeRecog=null,activeField=null;
 
-function updateAuthBar(account) {
-  const bar = document.getElementById('auth-bar');
-  if (bar && account) {
-    bar.style.display = 'flex';
-    document.getElementById('auth-user').textContent =
-      '🔐 Angemeldet als ' + (account.name || account.username);
+window.addEventListener('DOMContentLoaded',async()=>{await initMSAL();if(!('webkitSpeechRecognition'in window)&&!('SpeechRecognition'in window)){document.querySelectorAll('.no-speech').forEach(el=>el.style.display='block');document.querySelectorAll('.mic-btn').forEach(el=>el.disabled=true);}if(msalInstance.getAllAccounts().length>0)await ladeProjekte();});
+
+async function ladeProjekte(){
+  const card=document.getElementById('projekt-card');
+  card.innerHTML='<div class="field-label">🏗️ Projekt <span class="required">*</span></div><select id="projekt-select" class="sp-select" disabled><option>⏳ Projekte werden geladen …</option></select>';
+  try{
+    const sid=await getGraphSiteId(),token=await getToken(),listId=await getListGuid(sid,token,LIST_PROJ);
+    const r=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items?$expand=fields($select=Title)&$top=500`,{headers:{'Authorization':'Bearer '+token}});
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    const data=await r.json();
+    const projekte=(data.value||[]).sort((a,b)=>(a.fields?.Title||'').localeCompare(b.fields?.Title||''));
+    const select=document.getElementById('projekt-select');
+    select.innerHTML='<option value="">— Bitte Projekt wählen —</option>';
+    projekte.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.fields?.Title||'(kein Titel)';select.appendChild(o);});
+    if(!projekte.length)select.innerHTML='<option>— Keine Projekte vorhanden —</option>';
+    select.disabled=false;
+  }catch(err){
+    console.error('Projekte:',err);
+    card.innerHTML=`<div class="field-label">🏗️ Projekt <span class="required">*</span></div><input id="projekt-text" type="text" class="text-input" placeholder="Projektnamen eingeben …" /><div style="color:var(--danger);font-size:.8rem;margin-top:6px;">⚠️ ${err.message}<br><button class="login-btn" onclick="ladeProjekte()" style="margin-top:8px;padding:8px;">🔄 Erneut versuchen</button></div>`;
   }
 }
+function getProjektTitel(){const sel=document.getElementById('projekt-select'),txt=document.getElementById('projekt-text');if(txt)return txt.value.trim();if(!sel||!sel.value)return '';return sel.options[sel.selectedIndex].textContent;}
+function getProjektGraphId(){const sel=document.getElementById('projekt-select');if(!sel||!sel.value)return null;return sel.value;}
 
-async function signOut() {
-  await initMSAL();
-  const accounts = msalInstance.getAllAccounts();
-  if (accounts.length > 0) {
-    graphSiteId = null;
-    await msalInstance.logoutPopup({ account: accounts[0] });
-    document.getElementById('auth-bar').style.display = 'none';
-    document.getElementById('projekt-card').innerHTML = `
-      <div class="field-label">🏗️ Projekt <span class="required">*</span></div>
-      <button class="login-btn" onclick="ladeProjekte()">🔐 Mit Microsoft anmelden &amp; Projekte laden</button>`;
-  }
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  MICROSOFT GRAPH — SITE ID
-// ════════════════════════════════════════════════════════════════════════════
-async function getGraphSiteId() {
-  if (graphSiteId) return graphSiteId;
-  const token = await getToken();
-  const resp = await fetch(`${GRAPH}/sites/${SP_HOST}:${SITE_PATH}`, {
-    headers: { 'Authorization': 'Bearer ' + token }
+async function schreibeStatusEintrag(felder){
+  const sid=await getGraphSiteId(),token=await getToken(),listId=await getListGuid(sid,token,LIST_TAG);
+  // Schreibbare Spalten via Column-Definitions (nicht via Sample-Item-Keys!)
+  const writableCols=await getWritableCols(sid,token,listId,LIST_TAG);
+  const cleanFelder={};
+  Object.entries(felder).forEach(([k,v])=>{
+    if(v===null||v===undefined)return;
+    if(k==='Title'||!writableCols||writableCols[k]!==undefined){cleanFelder[k]=v;}
+    else{console.warn(`Spalte übersprungen (laut Definition nicht schreibbar): "${k}"`);}
   });
-  if (!resp.ok) throw new Error(`Site ID: HTTP ${resp.status}`);
-  const data = await resp.json();
-  graphSiteId = data.id;
-  return graphSiteId;
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  STATE
-// ════════════════════════════════════════════════════════════════════════════
-let selectedUser = '', selectedAmpel = '', activeRecog = null, activeField = null;
-
-// ════════════════════════════════════════════════════════════════════════════
-//  INIT
-// ════════════════════════════════════════════════════════════════════════════
-window.addEventListener('DOMContentLoaded', async () => {
-  await initMSAL();
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    document.querySelectorAll('.no-speech').forEach(el => el.style.display = 'block');
-    document.querySelectorAll('.mic-btn').forEach(el => el.disabled = true);
-  }
-  if (msalInstance.getAllAccounts().length > 0) await ladeProjekte();
-});
-
-// ════════════════════════════════════════════════════════════════════════════
-//  LISTEN-GUIDS ERMITTELN (robust, unabhängig vom genauen Listennamen)
-// ════════════════════════════════════════════════════════════════════════════
-let listGuids = {};  // { ProjektStamm: 'guid...', StatusTagebuch: 'guid...' }
-
-async function getListGuid(sid, token, searchName) {
-  if (listGuids[searchName]) return listGuids[searchName];
-  const resp = await fetch(`${GRAPH}/sites/${sid}/lists`, {
-    headers: { 'Authorization': 'Bearer ' + token }
-  });
-  if (!resp.ok) throw new Error(`Listen abrufen: HTTP ${resp.status}`);
-  const data = await resp.json();
-  console.log('Verfügbare Listen:', (data.value||[]).map(l=>l.displayName).join(', '));
-  // Alle Nicht-Buchstaben/Ziffern entfernen (inkl. Sonder-Bindestriche, En-Dash etc.)
-  const norm = s => s.replace(/[^a-z0-9äöüß]/gi,'').toLowerCase();
-  const list = (data.value||[]).find(l => norm(l.displayName) === norm(searchName));
-  if (!list) throw new Error(`Liste "${searchName}" nicht gefunden`);
-  listGuids[searchName] = list.id;
-  return list.id;
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  PROJEKTE LADEN (Microsoft Graph API)
-// ════════════════════════════════════════════════════════════════════════════
-async function ladeProjekte() {
-  const card = document.getElementById('projekt-card');
-  card.innerHTML = `<div class="field-label">🏗️ Projekt <span class="required">*</span></div>
-    <select id="projekt-select" class="sp-select" disabled><option>⏳ Projekte werden geladen …</option></select>`;
-  try {
-    const sid    = await getGraphSiteId();
-    const token  = await getToken();
-    const listId = await getListGuid(sid, token, LIST_PROJ);
-    const resp   = await fetch(
-      `${GRAPH}/sites/${sid}/lists/${listId}/items?$expand=fields($select=Title)&$top=500`,
-      { headers: { 'Authorization': 'Bearer ' + token } }
-    );
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data     = await resp.json();
-    const projekte = (data.value || []).sort((a,b) =>
-      (a.fields?.Title||'').localeCompare(b.fields?.Title||''));
-    const select = document.getElementById('projekt-select');
-    select.innerHTML = '<option value="">— Bitte Projekt wählen —</option>';
-    projekte.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value       = p.id;
-      opt.textContent = p.fields?.Title || '(kein Titel)';
-      select.appendChild(opt);
-    });
-    if (!projekte.length) select.innerHTML = '<option>— Keine Projekte vorhanden —</option>';
-    select.disabled = false;
-  } catch (err) {
-    console.error('Projekte laden:', err);
-    card.innerHTML = `<div class="field-label">🏗️ Projekt <span class="required">*</span></div>
-      <input id="projekt-text" type="text" class="text-input" placeholder="Projektnamen eingeben …" />
-      <div style="color:var(--danger);font-size:.8rem;margin-top:6px;">⚠️ ${err.message}
-        <br><button class="login-btn" onclick="ladeProjekte()" style="margin-top:8px;padding:8px;">🔄 Erneut versuchen</button></div>`;
-  }
-}
-
-function getProjektTitel() {
-  const sel = document.getElementById('projekt-select');
-  const txt = document.getElementById('projekt-text');
-  if (txt) return txt.value.trim();
-  if (!sel || !sel.value) return '';
-  return sel.options[sel.selectedIndex].textContent;
-}
-function getProjektGraphId() {
-  const sel = document.getElementById('projekt-select');
-  if (!sel || !sel.value) return null;
-  return sel.value;
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  STATUS TAGEBUCH EINTRAG SCHREIBEN (Microsoft Graph API)
-// ════════════════════════════════════════════════════════════════════════════
-async function schreibeStatusEintrag(felder) {
-  const sid    = await getGraphSiteId();
-  const token  = await getToken();
-  const listId = await getListGuid(sid, token, LIST_TAG);
-
-  // Feldnamen aus bestehendem Eintrag ermitteln (Graph API ist strikt bei Namen)
-  let validFields = null;
-  try {
-    const sample = await fetch(
-      `${GRAPH}/sites/${sid}/lists/${listId}/items?$expand=fields&$top=1`,
-      { headers: { 'Authorization': 'Bearer ' + token } }
-    );
-    const sd = await sample.json();
-    if (sd.value?.[0]?.fields) {
-      validFields = Object.keys(sd.value[0].fields);
-      console.log('Gültige Felder (Status-Tagebuch):', validFields.join(', '));
-    }
-  } catch(e) { console.warn('Sample-Read fehlgeschlagen:', e.message); }
-
-  // Nur bekannte Felder senden (unbekannte überspringen + loggen)
-  const cleanFelder = {};
-  Object.entries(felder).forEach(([k, v]) => {
-    if (!validFields || validFields.includes(k) || k === 'Title') {
-      cleanFelder[k] = v;
-    } else {
-      console.warn(`Feld übersprungen (nicht erkannt): "${k}" = "${v}"`);
-    }
-  });
-
-  console.log('POST felder:', JSON.stringify(cleanFelder));
-  const resp = await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`, {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields: cleanFelder })
-  });
-  if (!resp.ok) {
-    const txt = await resp.text().catch(() => '');
-    console.error('POST Fehler Response:', txt);
-    let msg = txt;
-    try {
-      const j = JSON.parse(txt);
-      msg = j.error?.message || j.error?.code || txt;
-      if (j.error?.innererror?.message) msg += ' | ' + j.error.innererror.message;
-    } catch {}
-    throw new Error(`HTTP ${resp.status}: ${msg}`);
-  }
+  console.log('POST:',JSON.stringify(cleanFelder));
+  const resp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:cleanFelder})});
+  if(!resp.ok){const txt=await resp.text().catch(()=>'');console.error('POST Fehler:',txt);let msg=txt;try{msg=JSON.parse(txt).error?.message||txt;}catch{}throw new Error(`HTTP ${resp.status}: ${msg}`);}
   return resp.json();
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  PROJEKT-STAMM AKTUALISIEREN (automatisch nach Status-Speicherung)
-// ════════════════════════════════════════════════════════════════════════════
-async function aktualisiereProjectStatus(projektGraphId, ampel, fortschritt) {
-  if (!projektGraphId) return;
-  try {
-    const sid    = await getGraphSiteId();
-    const token  = await getToken();
-    const listId = await getListGuid(sid, token, LIST_PROJ);
-    const update = {};
-    if (SP_PROJ.ampelstatus)   update[SP_PROJ.ampelstatus]   = ampel;
-    if (SP_PROJ.fortschritt)   update[SP_PROJ.fortschritt]   = fortschritt;
-    if (SP_PROJ.letztesUpdate) update[SP_PROJ.letztesUpdate] = new Date().toISOString().split('T')[0] + 'T00:00:00Z';
-    if (!Object.keys(update).length) return;
-    await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${projektGraphId}/fields`, {
-      method: 'PATCH',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(update)
-    });
+async function aktualisiereProjectStatus(projektId,ampel,fortschritt){
+  if(!projektId)return;
+  try{
+    const sid=await getGraphSiteId(),token=await getToken(),listId=await getListGuid(sid,token,LIST_PROJ);
+    const writableCols=await getWritableCols(sid,token,listId,LIST_PROJ);
+    const update={};
+    const ampelKey=Object.keys(writableCols||{}).find(k=>k.toLowerCase().includes('ampel'));
+    const fortKey=Object.keys(writableCols||{}).find(k=>k.toLowerCase().includes('fortschritt'));
+    if(ampelKey)update[ampelKey]=ampel;
+    if(fortKey)update[fortKey]=fortschritt;
+    if(!Object.keys(update).length)return;
+    await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${projektId}/fields`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(update)});
     console.log('✅ Projekt-Stamm aktualisiert');
-  } catch (e) {
-    console.warn('Projekt-Stamm Update fehlgeschlagen (nicht kritisch):', e.message);
-  }
+  }catch(e){console.warn('Projekt-Stamm:',e.message);}
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-//  UI
-// ════════════════════════════════════════════════════════════════════════════
-function selectUser(btn) { document.querySelectorAll('.user-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); selectedUser=btn.dataset.user; }
-function selectAmpel(btn) { document.querySelectorAll('.ampel-btn').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); selectedAmpel=btn.dataset.val; }
+function selectUser(btn){document.querySelectorAll('.user-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');selectedUser=btn.dataset.user;}
+function selectAmpel(btn){document.querySelectorAll('.ampel-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');selectedAmpel=btn.dataset.val;}
 
-// ════════════════════════════════════════════════════════════════════════════
-//  SPRACHEINGABE
-// ════════════════════════════════════════════════════════════════════════════
-function toggleMic(fieldId) {
-  if (activeField===fieldId && activeRecog) { activeRecog.stop(); return; }
-  if (activeRecog) activeRecog.stop();
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
-  const recog=new SR(); recog.lang='de-DE'; recog.interimResults=true; recog.continuous=true;
-  const mb=document.getElementById('mic-'+fieldId), he=document.getElementById('mic-'+fieldId+'-hint'), ta=document.getElementById(fieldId), base=ta.value;
+function toggleMic(fieldId){
+  if(activeField===fieldId&&activeRecog){activeRecog.stop();return;}if(activeRecog)activeRecog.stop();
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;
+  const recog=new SR();recog.lang='de-DE';recog.interimResults=true;recog.continuous=true;
+  const mb=document.getElementById('mic-'+fieldId),he=document.getElementById('mic-'+fieldId+'-hint'),ta=document.getElementById(fieldId),base=ta.value;
   recog.onstart=()=>{activeField=fieldId;activeRecog=recog;mb.classList.add('recording');mb.textContent='⏹️';he.textContent='🔴 Aufnahme läuft … erneut drücken zum Stoppen';};
   recog.onresult=(e)=>{let i='',f=base;for(let j=0;j<e.results.length;j++){if(e.results[j].isFinal)f+=(f&&!f.endsWith(' ')?' ':'')+e.results[j][0].transcript;else i+=e.results[j][0].transcript;}ta.value=f+(i?' ['+i+']':'');};
   recog.onerror=(e)=>{he.textContent='⚠️ Fehler: '+e.error;cleanup(fieldId);};
@@ -443,83 +211,35 @@ function toggleMic(fieldId) {
 }
 function cleanup(f){const b=document.getElementById('mic-'+f);if(b){b.classList.remove('recording');b.textContent='🎙️';}activeField=null;activeRecog=null;}
 
-// ════════════════════════════════════════════════════════════════════════════
-//  SUBMIT — speichert StatusTagebuch UND aktualisiert Projekt-Stamm
-// ════════════════════════════════════════════════════════════════════════════
-function validate() {
-  if (!selectedUser)      { showBanner('error','⚠️ Bitte Benutzer auswählen.'); return false; }
-  if (!getProjektTitel()) { showBanner('error','⚠️ Bitte Projekt auswählen.'); return false; }
-  if (!selectedAmpel)     { showBanner('error','⚠️ Bitte Ampelstatus auswählen.'); return false; }
-  return true;
-}
+function validate(){if(!selectedUser){showBanner('error','⚠️ Bitte Benutzer auswählen.');return false;}if(!getProjektTitel()){showBanner('error','⚠️ Bitte Projekt auswählen.');return false;}if(!selectedAmpel){showBanner('error','⚠️ Bitte Ampelstatus auswählen.');return false;}return true;}
 
-async function submitStatus() {
-  if (!validate()) return;
-  const btn=document.getElementById('submit-btn'); btn.disabled=true;
+async function submitStatus(){
+  if(!validate())return;
+  const btn=document.getElementById('submit-btn');btn.disabled=true;
   showBanner('sending','<div class="spinner"></div> Wird in SharePoint gespeichert …');
-  try {
-    const heute        = new Date();
-    const projektTitel = getProjektTitel();
-    const projektId    = getProjektGraphId();
-    const fortschritt  = parseInt(document.getElementById('fortschritt').value, 10);
-    const statustext   = document.getElementById('statustext').value.trim();
-    const naechste     = document.getElementById('naechsteschritte').value.trim();
-
-    // 1. StatusTagebuch-Eintrag erstellen
-    const felder = {};
-    felder['Title'] = `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`;
-    felder['Datum'] = heute.toISOString().split('T')[0] + 'T00:00:00Z';
-    felder['Ampelstatus_x0028_heute_x0029_'] = selectedAmpel;
-    felder['Fortschritt_x0025_']             = fortschritt;  // Als Ganzzahl (10 = 10%)
-    if (statustext) felder['Waswurdeerreicht_x003f_'] = statustext;
-    // Nächste Schritte: optionales Feld mit komplexem Namen, vorerst weggelassen
-    // if (naechste) felder['_x27a1__xfe0f_N_x00e4_chsteSchri'] = naechste;
-
+  try{
+    const heute=new Date(),projektTitel=getProjektTitel(),projektId=getProjektGraphId();
+    const fortschritt=parseInt(document.getElementById('fortschritt').value,10);
+    const statustext=document.getElementById('statustext').value.trim();
+    const naechste=document.getElementById('naechsteschritte').value.trim();
+    const felder={
+      'Title':`${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`,
+      'Datum':heute.toISOString().split('T')[0]+'T00:00:00Z',
+      'Ampelstatus_x0028_heute_x0029_':selectedAmpel,
+      'Fortschritt_x0025_':fortschritt,
+    };
+    if(statustext)felder['Waswurdeerreicht_x003f_']=statustext;
+    if(naechste)felder['_x27a1__xfe0f_N_x00e4_chsteSchri']=naechste;
     await schreibeStatusEintrag(felder);
-
-    // 2. Projekt-Stamm automatisch aktualisieren
-    await aktualisiereProjectStatus(projektId, selectedAmpel, fortschritt);
-
-    showBanner('success',
-      `✅ Status gespeichert & Projekt-Stamm aktualisiert! ` +
-      `<a href="https://${SP_HOST}${SITE_PATH}/Lists/${LIST_TAG}/AllItems.aspx" target="_blank" ` +
-      `style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch →</a>`);
+    await aktualisiereProjectStatus(projektId,selectedAmpel,fortschritt);
+    showBanner('success',`✅ Status gespeichert! <a href="https://${SP_HOST}${SITE_PATH}/Lists/${LIST_TAG}/AllItems.aspx" target="_blank" style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch →</a>`);
     resetForm();
-  } catch (err) {
-    console.error(err);
-    showBanner('error', `❌ ${err.message}`);
-  } finally { btn.disabled = false; }
+  }catch(err){console.error(err);showBanner('error',`❌ ${err.message}`);}
+  finally{btn.disabled=false;}
 }
 
 function showBanner(type,html){const el=document.getElementById('status-banner');el.className='status-banner show '+type;el.innerHTML=html;el.scrollIntoView({behavior:'smooth',block:'nearest'});if(type==='success')setTimeout(()=>el.classList.remove('show'),9000);}
-
-function resetForm(){
-  selectedUser='';selectedAmpel='';
-  document.querySelectorAll('.user-btn,.ampel-btn').forEach(b=>b.classList.remove('selected'));
-  const sel=document.getElementById('projekt-select');if(sel)sel.selectedIndex=0;
-  const txt=document.getElementById('projekt-text');if(txt)txt.value='';
-  document.getElementById('fortschritt').value=0; document.getElementById('f-val').textContent='0 %';
-  document.getElementById('statustext').value=''; document.getElementById('naechsteschritte').value='';
-  document.querySelectorAll('.mic-hint').forEach(h=>h.textContent='🎙️ Mikrofon-Button drücken und sprechen');
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  DEBUG — Feldnamen in Konsole ausgeben (F12 → debugProjektFields())
-// ════════════════════════════════════════════════════════════════════════════
-async function debugProjektFields() {
-  const sid = await getGraphSiteId();
-  const token = await getToken();
-  for (const list of [LIST_PROJ, LIST_TAG]) {
-    const r = await fetch(`${GRAPH}/sites/${sid}/lists/${list}/columns`, {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    const d = await r.json();
-    console.log(`\n📋 ${list}:\n` +
-      (d.value||[]).filter(c=>!c.hidden && !c.readOnly)
-       .map(c=>`  ${c.name.padEnd(40)} "${c.displayName}"`)
-       .join('\n'));
-  }
-}
+function resetForm(){selectedUser='';selectedAmpel='';document.querySelectorAll('.user-btn,.ampel-btn').forEach(b=>b.classList.remove('selected'));const sel=document.getElementById('projekt-select');if(sel)sel.selectedIndex=0;const txt=document.getElementById('projekt-text');if(txt)txt.value='';document.getElementById('fortschritt').value=0;document.getElementById('f-val').textContent='0 %';document.getElementById('statustext').value='';document.getElementById('naechsteschritte').value='';document.querySelectorAll('.mic-hint').forEach(h=>h.textContent='🎙️ Mikrofon-Button drücken und sprechen');}
 </script>
 </body>
 </html>
