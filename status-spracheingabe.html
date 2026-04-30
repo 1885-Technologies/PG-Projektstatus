@@ -189,16 +189,23 @@ async function ladeProjekte(){
 function getProjektTitel(){const sel=document.getElementById('projekt-select'),txt=document.getElementById('projekt-text');if(txt)return txt.value.trim();if(!sel||!sel.value)return '';return sel.options[sel.selectedIndex].textContent;}
 function getProjektGraphId(){const sel=document.getElementById('projekt-select');if(!sel||!sel.value)return null;return sel.value;}
 
-async function aktualisiereProjectStatus(projektId,ampel,fortschritt,writableColsProj){
+async function aktualisiereProjectStatus(projektId,ampel,fortschritt,statustext,naechste){
   if(!projektId)return;
   try{
     const sid=await getGraphSiteId(),token=await getToken(),listId=await getListGuid(sid,token,LIST_PROJ);
-    const cols=writableColsProj||await getWritableCols(sid,token,listId,LIST_PROJ);
+    const cols=await getWritableCols(sid,token,listId,LIST_PROJ);
     const update={};
-    const ampelCol=Object.values(cols||{}).find(c=>c.name.toLowerCase().includes('ampel'));
-    const fortCol=Object.values(cols||{}).find(c=>c.name.toLowerCase().includes('fortschritt'));
-    if(ampelCol)setFeld(update,ampelCol,ampel);
-    if(fortCol)setFeld(update,fortCol,fortschritt);
+    const ampelCol    = Object.values(cols||{}).find(c=>c.displayName.toLowerCase().includes('ampel'));
+    const fortCol     = Object.values(cols||{}).find(c=>c.displayName.toLowerCase().includes('fortschritt'));
+    const updateCol   = Object.values(cols||{}).find(c=>c.displayName.toLowerCase().includes('letztes update')||c.displayName.toLowerCase().includes('letztesupdate')||c.name.toLowerCase()==='letztesupdate');
+    const kommentarCol= Object.values(cols||{}).find(c=>c.displayName.toLowerCase().includes('kommentar'));
+    const naxtProjCol = Object.values(cols||{}).find(c=>c.displayName.toLowerCase().includes('nächste schritte')||c.displayName.toLowerCase().includes('nachste schritte')||c.displayName.toLowerCase().includes('schritte'));
+    if(ampelCol)                    setFeld(update,ampelCol,ampel);
+    if(fortCol)                     setFeld(update,fortCol,fortschritt);
+    if(updateCol)                   setFeld(update,updateCol,new Date().toISOString().split('T')[0]+'T00:00:00Z');
+    if(kommentarCol && statustext)  setFeld(update,kommentarCol,statustext);
+    if(naxtProjCol  && naechste)    setFeld(update,naxtProjCol,naechste);
+    console.log('Projekt-Stamm Update:',JSON.stringify(update));
     if(!Object.keys(update).length)return;
     await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${projektId}/fields`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(update)});
     console.log('✅ Projekt-Stamm aktualisiert');
@@ -277,7 +284,7 @@ async function submitStatus(){
       }catch(e){console.warn('Nächste Schritte (unkritisch):',e.message);}
     }
 
-    await aktualisiereProjectStatus(projektId,selectedAmpel,fortschritt);
+    await aktualisiereProjectStatus(projektId,selectedAmpel,fortschritt,statustext,naechste);
     showBanner('success',`✅ Status gespeichert! <a href="https://${SP_HOST}${SITE_PATH}/Lists/StatusTagebuch/AllItems.aspx" target="_blank" style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch →</a>`);
     resetForm();
   }catch(err){console.error(err);showBanner('error',`❌ ${err.message}`);}
