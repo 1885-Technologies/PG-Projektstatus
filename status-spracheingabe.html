@@ -124,7 +124,6 @@ async function signOut(){await initMSAL();const a=msalInstance.getAllAccounts();
 async function getGraphSiteId(){if(graphSiteId)return graphSiteId;const token=await getToken();const r=await fetch(`${GRAPH}/sites/${SP_HOST}:${SITE_PATH}`,{headers:{'Authorization':'Bearer '+token}});if(!r.ok)throw new Error(`Site ID: HTTP ${r.status}`);graphSiteId=(await r.json()).id;return graphSiteId;}
 async function getListGuid(sid,token,searchName){if(listGuids[searchName])return listGuids[searchName];const r=await fetch(`${GRAPH}/sites/${sid}/lists`,{headers:{'Authorization':'Bearer '+token}});if(!r.ok)throw new Error(`Listen: HTTP ${r.status}`);const data=await r.json();console.log('Listen:',(data.value||[]).map(l=>l.displayName).join(', '));const norm=s=>s.replace(/[^a-z0-9äöüß]/gi,'').toLowerCase();const list=(data.value||[]).find(l=>norm(l.displayName)===norm(searchName));if(!list)throw new Error(`Liste "${searchName}" nicht gefunden`);listGuids[searchName]=list.id;return list.id;}
 
-// Spalten-Definitionen holen (zeigt welche Felder wirklich schreibbar sind)
 async function getWritableCols(sid,token,listId,listName){
   if(writableColsCache[listName])return writableColsCache[listName];
   const r=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/columns`,{headers:{'Authorization':'Bearer '+token}});
@@ -162,22 +161,6 @@ async function ladeProjekte(){
 }
 function getProjektTitel(){const sel=document.getElementById('projekt-select'),txt=document.getElementById('projekt-text');if(txt)return txt.value.trim();if(!sel||!sel.value)return '';return sel.options[sel.selectedIndex].textContent;}
 function getProjektGraphId(){const sel=document.getElementById('projekt-select');if(!sel||!sel.value)return null;return sel.value;}
-
-async function schreibeStatusEintrag(felder){
-  const sid=await getGraphSiteId(),token=await getToken(),listId=await getListGuid(sid,token,LIST_TAG);
-  // Schreibbare Spalten via Column-Definitions (nicht via Sample-Item-Keys!)
-  const writableCols=await getWritableCols(sid,token,listId,LIST_TAG);
-  const cleanFelder={};
-  Object.entries(felder).forEach(([k,v])=>{
-    if(v===null||v===undefined)return;
-    if(k==='Title'||!writableCols||writableCols[k]!==undefined){cleanFelder[k]=v;}
-    else{console.warn(`Spalte übersprungen (laut Definition nicht schreibbar): "${k}"`);}
-  });
-  console.log('POST:',JSON.stringify(cleanFelder));
-  const resp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:cleanFelder})});
-  if(!resp.ok){const txt=await resp.text().catch(()=>'');console.error('POST Fehler:',txt);let msg=txt;try{msg=JSON.parse(txt).error?.message||txt;}catch{}throw new Error(`HTTP ${resp.status}: ${msg}`);}
-  return resp.json();
-}
 
 async function aktualisiereProjectStatus(projektId,ampel,fortschritt){
   if(!projektId)return;
@@ -227,7 +210,6 @@ async function submitStatus(){
     const listId=await getListGuid(sid,token,LIST_TAG);
     const writableCols=await getWritableCols(sid,token,listId,LIST_TAG);
 
-    // col.name direkt verwenden (kodierte Form wie "Ampelstatus_x0028_heute_x0029_")
     function findColName(kws){
       if(!writableCols)return null;
       const col=Object.values(writableCols).find(c=>kws.some(k=>c.displayName.toLowerCase().includes(k)));
@@ -236,28 +218,35 @@ async function submitStatus(){
     const ampelName = findColName(['ampel']);
     const fortName  = findColName(['fortschritt','fortschr']);
     const wasName   = findColName(['erreicht','was wurde','waswurde']);
-    const naxtName  = findColName(['nächste','nachste','schritte','maßnahm','massnahm']);
-    console.log('Schreib-Namen:',{ampel:ampelName,fort:fortName,was:wasName,naxt:naxtName});
-    console.log('col.names:',{ampel:ampelName,fort:fortName,was:wasName,naxt:naxtName});
+    console.log('Spalten-Namen:',{ampel:ampelName,fort:fortName,was:wasName});
 
-    // SINGLE POST mit allen Feldern auf einmal
+    // SINGLE POST — alle Felder auf einmal
     const alleFelder = {
       Title: `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`,
       Datum: heute.toISOString().split('T')[0]+'T00:00:00Z'
     };
-    if(ampelName && selectedAmpel)  alleFelder[ampelName] = selectedAmpel; // Choice → plain string
+    if(ampelName && selectedAmpel)  alleFelder[ampelName] = selectedAmpel;  // plain string, kein Array
     if(fortName)                    alleFelder[fortName]  = fortschritt;
     if(wasName && statustext)       alleFelder[wasName]   = statustext;
-    // Nächste Schritte: emoji-kodierter Feldname → separat via PATCH nach erfolgreichem POST
-    // (wird vorerst übersprungen um den POST nicht zu brechen)
+    // Nächste Schritte wird separat via PATCH ergänzt (emoji-kodierter interner Feldname)
     console.log('POST (alle Felder):',JSON.stringify(alleFelder));
     const postResp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:alleFelder})});
     if(!postResp.ok){const t=await postResp.text().catch(()=>'');let m=t;try{m=JSON.parse(t).error?.message||t;}catch{}throw new Error(`POST (${postResp.status}): ${m}`);}
     const newItem=await postResp.json();
     console.log('✅ Status-Eintrag gespeichert, Item-ID:',newItem.id);
 
+    // Nächste Schritte via PATCH (separater Schritt, scheitern ist nicht kritisch)
+    if(naechste){
+      try{
+        const naxtCol=Object.values(writableCols||{}).find(c=>['nächste','nachste','schritte','maßnahm','massnahm'].some(k=>c.displayName.toLowerCase().includes(k)));
+        if(naxtCol){
+          await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${newItem.id}/fields`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({[naxtCol.name]:naechste})});
+          console.log('✅ Nächste Schritte gespeichert');
+        }
+      }catch(e){console.warn('Nächste Schritte:',e.message);}
+    }
+
     await aktualisiereProjectStatus(projektId,selectedAmpel,fortschritt);
-    // URL-Pfad der Liste (interner Name ohne Sonderzeichen)
     showBanner('success',`✅ Status gespeichert! <a href="https://${SP_HOST}${SITE_PATH}/Lists/StatusTagebuch/AllItems.aspx" target="_blank" style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch →</a>`);
     resetForm();
   }catch(err){console.error(err);showBanner('error',`❌ ${err.message}`);}
