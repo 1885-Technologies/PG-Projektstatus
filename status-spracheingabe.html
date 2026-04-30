@@ -29,9 +29,9 @@
     .ampel-btn { flex: 1; padding: 12px 8px; border: 2px solid var(--border); border-radius: var(--radius); background: transparent; cursor: pointer; font-size: 1.5rem; text-align: center; transition: all .15s; }
     .ampel-btn span.label { display: block; font-size: 0.72rem; font-weight: 600; color: var(--muted); margin-top: 4px; }
     .ampel-btn:hover { transform: scale(1.05); border-color: #999; }
-    .ampel-btn[data-val="Kritisch"].selected { border-color: #cc1111; background: #fff0f0; }
-    .ampel-btn[data-val="Achtung"].selected  { border-color: #cc9900; background: #fffbe0; }
-    .ampel-btn[data-val="OK"].selected       { border-color: #108000; background: #efffee; }
+    .ampel-btn[data-val="Eskalation nötig"].selected { border-color: #cc1111; background: #fff0f0; }
+    .ampel-btn[data-val="in Beobachtung"].selected   { border-color: #cc9900; background: #fffbe0; }
+    .ampel-btn[data-val="auf Kurs"].selected          { border-color: #108000; background: #efffee; }
     .fortschritt-row { display: flex; align-items: center; gap: 14px; }
     input[type="range"] { flex: 1; accent-color: var(--primary); cursor: pointer; }
     .fortschritt-val { min-width: 52px; text-align: center; font-size: 1.1rem; font-weight: 700; color: var(--primary); }
@@ -80,9 +80,9 @@
   <div class="card">
     <div class="field-label">🚦 Ampelstatus <span class="required">*</span></div>
     <div class="ampel-grid">
-      <button class="ampel-btn" data-val="Kritisch" onclick="selectAmpel(this)">🔴<span class="label">Kritisch</span></button>
-      <button class="ampel-btn" data-val="Achtung"  onclick="selectAmpel(this)">🟡<span class="label">Achtung</span></button>
-      <button class="ampel-btn" data-val="OK"       onclick="selectAmpel(this)">🟢<span class="label">OK</span></button>
+      <button class="ampel-btn" data-val="Eskalation nötig" onclick="selectAmpel(this)">🔴<span class="label">Eskalation nötig</span></button>
+      <button class="ampel-btn" data-val="in Beobachtung"   onclick="selectAmpel(this)">🟡<span class="label">In Beobachtung</span></button>
+      <button class="ampel-btn" data-val="auf Kurs"         onclick="selectAmpel(this)">🟢<span class="label">Auf Kurs</span></button>
     </div>
   </div>
   <div class="card">
@@ -227,13 +227,11 @@ async function submitStatus(){
     const listId=await getListGuid(sid,token,LIST_TAG);
     const writableCols=await getWritableCols(sid,token,listId,LIST_TAG);
 
-    // Schreib-Name = Teil VOR der ersten _xHHHH_ Kodierung
-    // z.B. "Ampelstatus_x0028_heute_x0029_" → "Ampelstatus"
-    function toWriteName(n){ return n ? n.split('_x')[0] || n : n; }
+    // col.name direkt verwenden (kodierte Form wie "Ampelstatus_x0028_heute_x0029_")
     function findColName(kws){
       if(!writableCols)return null;
       const col=Object.values(writableCols).find(c=>kws.some(k=>c.displayName.toLowerCase().includes(k)));
-      return col ? toWriteName(col.name) : null;
+      return col?.name||null;
     }
     const ampelName = findColName(['ampel']);
     const fortName  = findColName(['fortschritt','fortschr']);
