@@ -131,9 +131,36 @@ async function getWritableCols(sid,token,listId,listName){
   const data=await r.json();
   const writable={};
   (data.value||[]).forEach(col=>{if(!col.readOnly&&!col.hidden)writable[col.name]=col;});
-  console.log('Schreibbare Spalten ('+listName+'):',Object.keys(writable).join(', '));
+  // Typ-Infos loggen für Diagnose
+  Object.values(writable).forEach(col=>{
+    const typ=col.choice?'choice(multi='+col.choice.allowMultipleValues+',as='+col.choice.displayAs+')':col.number?'number(as='+col.number.displayAs+')':col.text?'text':'?';
+    console.log('Spalte:',col.name,'|',col.displayName,'|',typ);
+  });
   writableColsCache[listName]=writable;
   return writable;
+}
+
+// Setzt einen Feldwert typsicher in das Felder-Objekt
+function setFeld(felder, col, value){
+  if(!col||value===null||value===undefined)return;
+  if(col.choice){
+    if(col.choice.allowMultipleValues||col.choice.displayAs==='checkBoxes'){
+      // Multi-Choice: OData-Annotation + Array
+      felder[col.name+'@odata.type']='Collection(Edm.String)';
+      felder[col.name]=Array.isArray(value)?value:[value];
+    } else {
+      felder[col.name]=String(value); // Single-Choice: plain string
+    }
+  } else if(col.number){
+    const num=parseFloat(value);
+    if(col.number.displayAs==='percentage'){
+      felder[col.name]=num/100; // Prozent-Spalte: als Dezimal (0.1 = 10%)
+    } else {
+      felder[col.name]=num;
+    }
+  } else {
+    felder[col.name]=value; // Text etc.: unverändert
+  }
 }
 
 let selectedUser='',selectedAmpel='',activeRecog=null,activeField=null;
@@ -162,16 +189,16 @@ async function ladeProjekte(){
 function getProjektTitel(){const sel=document.getElementById('projekt-select'),txt=document.getElementById('projekt-text');if(txt)return txt.value.trim();if(!sel||!sel.value)return '';return sel.options[sel.selectedIndex].textContent;}
 function getProjektGraphId(){const sel=document.getElementById('projekt-select');if(!sel||!sel.value)return null;return sel.value;}
 
-async function aktualisiereProjectStatus(projektId,ampel,fortschritt){
+async function aktualisiereProjectStatus(projektId,ampel,fortschritt,writableColsProj){
   if(!projektId)return;
   try{
     const sid=await getGraphSiteId(),token=await getToken(),listId=await getListGuid(sid,token,LIST_PROJ);
-    const writableCols=await getWritableCols(sid,token,listId,LIST_PROJ);
+    const cols=writableColsProj||await getWritableCols(sid,token,listId,LIST_PROJ);
     const update={};
-    const ampelKey=Object.keys(writableCols||{}).find(k=>k.toLowerCase().includes('ampel'));
-    const fortKey=Object.keys(writableCols||{}).find(k=>k.toLowerCase().includes('fortschritt'));
-    if(ampelKey)update[ampelKey]=ampel;
-    if(fortKey)update[fortKey]=fortschritt;
+    const ampelCol=Object.values(cols||{}).find(c=>c.name.toLowerCase().includes('ampel'));
+    const fortCol=Object.values(cols||{}).find(c=>c.name.toLowerCase().includes('fortschritt'));
+    if(ampelCol)setFeld(update,ampelCol,ampel);
+    if(fortCol)setFeld(update,fortCol,fortschritt);
     if(!Object.keys(update).length)return;
     await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${projektId}/fields`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(update)});
     console.log('✅ Projekt-Stamm aktualisiert');
@@ -210,40 +237,44 @@ async function submitStatus(){
     const listId=await getListGuid(sid,token,LIST_TAG);
     const writableCols=await getWritableCols(sid,token,listId,LIST_TAG);
 
-    function findColName(kws){
+    function findCol(kws){
       if(!writableCols)return null;
-      const col=Object.values(writableCols).find(c=>kws.some(k=>c.displayName.toLowerCase().includes(k)));
-      return col?.name||null;
+      return Object.values(writableCols).find(c=>kws.some(k=>c.displayName.toLowerCase().includes(k)))||null;
     }
-    const ampelName = findColName(['ampel']);
-    const fortName  = findColName(['fortschritt','fortschr']);
-    const wasName   = findColName(['erreicht','was wurde','waswurde']);
-    console.log('Spalten-Namen:',{ampel:ampelName,fort:fortName,was:wasName});
+    const ampelCol = findCol(['ampel']);
+    const fortCol  = findCol(['fortschritt','fortschr']);
+    const wasCol   = findCol(['erreicht','was wurde','waswurde']);
+    const naxtCol  = findCol(['nächste','nachste','schritte','maßnahm','massnahm']);
+    console.log('Spaltentypen:',{
+      ampel: ampelCol?.name+'|'+JSON.stringify(ampelCol?.choice||ampelCol?.number||'?'),
+      fort:  fortCol?.name+'|'+JSON.stringify(fortCol?.number||'?'),
+      was:   wasCol?.name,
+      naxt:  naxtCol?.name
+    });
 
-    // SINGLE POST — alle Felder auf einmal
+    // SINGLE POST — typsicheres Setzen aller Felder
     const alleFelder = {
       Title: `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`,
       Datum: heute.toISOString().split('T')[0]+'T00:00:00Z'
     };
-    if(ampelName && selectedAmpel)  alleFelder[ampelName] = selectedAmpel;  // plain string, kein Array
-    if(fortName)                    alleFelder[fortName]  = fortschritt;
-    if(wasName && statustext)       alleFelder[wasName]   = statustext;
-    // Nächste Schritte wird separat via PATCH ergänzt (emoji-kodierter interner Feldname)
-    console.log('POST (alle Felder):',JSON.stringify(alleFelder));
+    if(ampelCol && selectedAmpel) setFeld(alleFelder, ampelCol, selectedAmpel);
+    if(fortCol)                   setFeld(alleFelder, fortCol,  fortschritt);
+    if(wasCol && statustext)      setFeld(alleFelder, wasCol,   statustext);
+
+    console.log('POST body:',JSON.stringify(alleFelder));
     const postResp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:alleFelder})});
     if(!postResp.ok){const t=await postResp.text().catch(()=>'');let m=t;try{m=JSON.parse(t).error?.message||t;}catch{}throw new Error(`POST (${postResp.status}): ${m}`);}
     const newItem=await postResp.json();
     console.log('✅ Status-Eintrag gespeichert, Item-ID:',newItem.id);
 
-    // Nächste Schritte via PATCH (separater Schritt, scheitern ist nicht kritisch)
-    if(naechste){
+    // Nächste Schritte via separatem PATCH (emoji-kodierter Feldname — unkritisch wenn fehlschlägt)
+    if(naxtCol && naechste){
       try{
-        const naxtCol=Object.values(writableCols||{}).find(c=>['nächste','nachste','schritte','maßnahm','massnahm'].some(k=>c.displayName.toLowerCase().includes(k)));
-        if(naxtCol){
-          await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${newItem.id}/fields`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({[naxtCol.name]:naechste})});
-          console.log('✅ Nächste Schritte gespeichert');
-        }
-      }catch(e){console.warn('Nächste Schritte:',e.message);}
+        const naxtFelder={};
+        setFeld(naxtFelder,naxtCol,naechste);
+        await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${newItem.id}/fields`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(naxtFelder)});
+        console.log('✅ Nächste Schritte gespeichert');
+      }catch(e){console.warn('Nächste Schritte (unkritisch):',e.message);}
     }
 
     await aktualisiereProjectStatus(projektId,selectedAmpel,fortschritt);
