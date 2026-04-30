@@ -263,7 +263,8 @@ async function submitStatus(){
     const patchBody={};
     // Jede gefundene Spalte direkt schreiben
     // Nur Felder ohne Emoji-Kodierung im Namen → sicherer für PATCH
-    if(ampelName && selectedAmpel && !ampelName.startsWith('_x')) patchBody[ampelName]=selectedAmpel;
+    // Multi-Choice-Feld → Array übergeben
+    if(ampelName && selectedAmpel && !ampelName.startsWith('_x')) patchBody[ampelName]=[selectedAmpel];
     if(fortName  && !fortName.startsWith('_x'))                   patchBody[fortName]=fortschritt;
     if(wasName   && statustext && !wasName.startsWith('_x'))      patchBody[wasName]=statustext;
     // Nächste Schritte: Emoji-Kodierung im Namen → in Title stattdessen einbauen
