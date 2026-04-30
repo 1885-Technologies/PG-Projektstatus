@@ -262,21 +262,21 @@ async function submitStatus(){
     // PATCH: Spalten aus Column-Definitions direkt ansprechen
     const patchBody={};
     // Jede gefundene Spalte direkt schreiben
-    if(ampelName && selectedAmpel) patchBody[ampelName]=selectedAmpel;
-    if(fortName)                   patchBody[fortName]=fortschritt;
-    if(wasName && statustext)      patchBody[wasName]=statustext;
-    if(naxtName && naechste)       patchBody[naxtName]=naechste;
-    console.log('Spalten→',{ampel:ampelName,fort:fortName,was:wasName,naxt:naxtName});
+    // Nur Felder ohne Emoji-Kodierung im Namen → sicherer für PATCH
+    if(ampelName && selectedAmpel && !ampelName.startsWith('_x')) patchBody[ampelName]=selectedAmpel;
+    if(fortName  && !fortName.startsWith('_x'))                   patchBody[fortName]=fortschritt;
+    if(wasName   && statustext && !wasName.startsWith('_x'))      patchBody[wasName]=statustext;
+    // Nächste Schritte: Emoji-Kodierung im Namen → in Title stattdessen einbauen
     console.log('PATCH body:',JSON.stringify(patchBody));
     if(Object.keys(patchBody).length>0){
-      const pr=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${newItemId}/fields`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(patchBody)});
+      // Versuche PATCH auf Item-Ebene (nicht /fields) — breitere Kompatibilität
+      const pr=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${newItemId}`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:patchBody})});
       if(!pr.ok){
         const errTxt=await pr.text().catch(()=>'');
         let errMsg=errTxt;try{errMsg=JSON.parse(errTxt).error?.message||errTxt;}catch{}
-        // Fehler sichtbar machen → wichtig für Diagnose
-        throw new Error(`PATCH Zusatzfelder (${pr.status}): ${errMsg} | Spalten: ${JSON.stringify(patchBody)}`);
+        throw new Error(`PATCH (${pr.status}): ${errMsg}`);
       }
-      console.log('✅ Zusatzfelder gespeichert');
+      console.log('✅ Felder gespeichert');
     }
 
     await aktualisiereProjectStatus(projektId,selectedAmpel,fortschritt);
