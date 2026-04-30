@@ -227,15 +227,19 @@ async function submitStatus(){
     const listId=await getListGuid(sid,token,LIST_TAG);
     const writableCols=await getWritableCols(sid,token,listId,LIST_TAG);
 
+    // Schreib-Name = Teil VOR der ersten _xHHHH_ Kodierung
+    // z.B. "Ampelstatus_x0028_heute_x0029_" → "Ampelstatus"
+    function toWriteName(n){ return n ? n.split('_x')[0] || n : n; }
     function findColName(kws){
       if(!writableCols)return null;
       const col=Object.values(writableCols).find(c=>kws.some(k=>c.displayName.toLowerCase().includes(k)));
-      return col?.name||null;
+      return col ? toWriteName(col.name) : null;
     }
     const ampelName = findColName(['ampel']);
     const fortName  = findColName(['fortschritt','fortschr']);
     const wasName   = findColName(['erreicht','was wurde','waswurde']);
     const naxtName  = findColName(['nächste','nachste','schritte','maßnahm','massnahm']);
+    console.log('Schreib-Namen:',{ampel:ampelName,fort:fortName,was:wasName,naxt:naxtName});
     console.log('col.names:',{ampel:ampelName,fort:fortName,was:wasName,naxt:naxtName});
 
     // SCHRITT 1: POST mit Title + Datum (bekannte Pflichtfelder, funktioniert zuverlässig)
