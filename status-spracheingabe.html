@@ -262,7 +262,7 @@ async function submitStatus(){
     // SINGLE POST — typsicheres Setzen aller Felder
     const alleFelder = {
       Title: `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`,
-      Datum: heute.toISOString().split('T')[0]+'T00:00:00Z'
+      Datum: heute.toISOString()
     };
     if(ampelCol && selectedAmpel) setFeld(alleFelder, ampelCol, selectedAmpel);
     if(fortCol)                   setFeld(alleFelder, fortCol,  fortschritt);
