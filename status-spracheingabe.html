@@ -202,7 +202,7 @@ async function aktualisiereProjectStatus(projektId,ampel,fortschritt,statustext,
     const naxtProjCol = Object.values(cols||{}).find(c=>c.displayName.toLowerCase().includes('nächste schritte')||c.displayName.toLowerCase().includes('nachste schritte')||c.displayName.toLowerCase().includes('schritte'));
     if(ampelCol)                    setFeld(update,ampelCol,ampel);
     if(fortCol)                     setFeld(update,fortCol,fortschritt);
-    if(updateCol)                   setFeld(update,updateCol,new Date().toISOString().split('T')[0]+'T00:00:00Z');
+    if(updateCol)                   setFeld(update,updateCol,new Date().toISOString());
     if(kommentarCol && statustext)  setFeld(update,kommentarCol,statustext);
     if(naxtProjCol  && naechste)    setFeld(update,naxtProjCol,naechste);
     console.log('Projekt-Stamm Update:',JSON.stringify(update));
