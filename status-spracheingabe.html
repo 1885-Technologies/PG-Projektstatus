@@ -223,33 +223,46 @@ async function submitStatus(){
     const statustext=document.getElementById('statustext').value.trim();
     const naechste=document.getElementById('naechsteschritte').value.trim();
 
-    // Korrekte Schreib-Feldnamen via Column Definitions holen
     const sid=await getGraphSiteId(),token=await getToken();
     const listId=await getListGuid(sid,token,LIST_TAG);
     const writableCols=await getWritableCols(sid,token,listId,LIST_TAG);
 
-    // col.name per Schlüsselwort in displayName finden
-    function findCol(kws){
+    function findColName(kws){
       if(!writableCols)return null;
-      return Object.values(writableCols).find(c=>kws.some(k=>c.displayName.toLowerCase().includes(k)))||null;
+      const col=Object.values(writableCols).find(c=>kws.some(k=>c.displayName.toLowerCase().includes(k)));
+      return col?.name||null;
     }
-    const ampelCol  = findCol(['ampel']);
-    const fortCol   = findCol(['fortschritt','fortschr']);
-    const wasCol    = findCol(['was wurde','erreicht','waswurde']);
-    const naextCol  = findCol(['nächste','nachste','schritte','maßnahm','massnahm']);
+    const ampelName = findColName(['ampel']);
+    const fortName  = findColName(['fortschritt','fortschr']);
+    const wasName   = findColName(['erreicht','was wurde','waswurde']);
+    const naxtName  = findColName(['nächste','nachste','schritte','maßnahm','massnahm']);
+    console.log('col.names:',{ampel:ampelName,fort:fortName,was:wasName,naxt:naxtName});
 
-    console.log('Spalten→',{ampel:ampelCol?.name,fort:fortCol?.name,was:wasCol?.name,naext:naextCol?.name});
+    // SCHRITT 1: POST mit Title + Datum (bekannte Pflichtfelder, funktioniert zuverlässig)
+    const basisFelder = {
+      Title: `${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`,
+      Datum: heute.toISOString().split('T')[0]+'T00:00:00Z'
+    };
+    console.log('POST (Basis):',JSON.stringify(basisFelder));
+    const postResp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:basisFelder})});
+    if(!postResp.ok){const t=await postResp.text().catch(()=>'');let m=t;try{m=JSON.parse(t).error?.message||t;}catch{}throw new Error(`POST HTTP ${postResp.status}: ${m}`);}
+    const newItem=await postResp.json();
+    const newItemId=newItem.id;
+    console.log('✅ Basis gespeichert, Item-ID:',newItemId);
 
-    const felder={'Title':`${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`,'Datum':heute.toISOString().split('T')[0]+'T00:00:00Z'};
-    if(ampelCol)  felder[ampelCol.name]  = selectedAmpel;
-    if(fortCol)   felder[fortCol.name]   = fortschritt;
-    if(wasCol && statustext)  felder[wasCol.name]  = statustext;
-    if(naextCol && naechste)  felder[naextCol.name] = naechste;
+    // SCHRITT 2: PATCH mit Zusatzfeldern (werden nachträglich geschrieben)
+    const patchFelder={};
+    if(ampelName)                    patchFelder[ampelName]=selectedAmpel;
+    if(fortName)                     patchFelder[fortName]=fortschritt;
+    if(wasName&&statustext)          patchFelder[wasName]=statustext;
+    if(naxtName&&naechste)           patchFelder[naxtName]=naechste;
 
-    console.log('POST body:',JSON.stringify(felder));
-
-    const resp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:felder})});
-    if(!resp.ok){const txt=await resp.text().catch(()=>'');let msg=txt;try{msg=JSON.parse(txt).error?.message||txt;}catch{}throw new Error(`HTTP ${resp.status}: ${msg}`);}
+    if(Object.keys(patchFelder).length>0){
+      console.log('PATCH (Zusatz):',JSON.stringify(patchFelder));
+      const patchResp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items/${newItemId}/fields`,{method:'PATCH',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(patchFelder)});
+      if(!patchResp.ok){const t=await patchResp.text().catch(()=>'');console.warn('PATCH Felder fehlgeschlagen (nicht kritisch):',t);}
+      else console.log('✅ Zusatzfelder gespeichert');
+    }
 
     await aktualisiereProjectStatus(projektId,selectedAmpel,fortschritt);
     showBanner('success',`✅ Status gespeichert! <a href="https://${SP_HOST}${SITE_PATH}/Lists/${LIST_TAG}/AllItems.aspx" target="_blank" style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch →</a>`);
