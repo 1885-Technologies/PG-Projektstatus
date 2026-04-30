@@ -222,15 +222,35 @@ async function submitStatus(){
     const fortschritt=parseInt(document.getElementById('fortschritt').value,10);
     const statustext=document.getElementById('statustext').value.trim();
     const naechste=document.getElementById('naechsteschritte').value.trim();
-    const felder={
-      'Title':`${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`,
-      'Datum':heute.toISOString().split('T')[0]+'T00:00:00Z',
-      'Ampelstatus_x0028_heute_x0029_':selectedAmpel,
-      'Fortschritt_x0025_':fortschritt,
-    };
-    if(statustext)felder['Waswurdeerreicht_x003f_']=statustext;
-    if(naechste)felder['_x27a1__xfe0f_N_x00e4_chsteSchri']=naechste;
-    await schreibeStatusEintrag(felder);
+
+    // Korrekte Schreib-Feldnamen via Column Definitions holen
+    const sid=await getGraphSiteId(),token=await getToken();
+    const listId=await getListGuid(sid,token,LIST_TAG);
+    const writableCols=await getWritableCols(sid,token,listId,LIST_TAG);
+
+    // col.name per Schlüsselwort in displayName finden
+    function findCol(kws){
+      if(!writableCols)return null;
+      return Object.values(writableCols).find(c=>kws.some(k=>c.displayName.toLowerCase().includes(k)))||null;
+    }
+    const ampelCol  = findCol(['ampel']);
+    const fortCol   = findCol(['fortschritt','fortschr']);
+    const wasCol    = findCol(['was wurde','erreicht','waswurde']);
+    const naextCol  = findCol(['nächste','nachste','schritte','maßnahm','massnahm']);
+
+    console.log('Spalten→',{ampel:ampelCol?.name,fort:fortCol?.name,was:wasCol?.name,naext:naextCol?.name});
+
+    const felder={'Title':`${selectedUser} – ${projektTitel} – ${heute.toLocaleDateString('de-DE')}`,'Datum':heute.toISOString().split('T')[0]+'T00:00:00Z'};
+    if(ampelCol)  felder[ampelCol.name]  = selectedAmpel;
+    if(fortCol)   felder[fortCol.name]   = fortschritt;
+    if(wasCol && statustext)  felder[wasCol.name]  = statustext;
+    if(naextCol && naechste)  felder[naextCol.name] = naechste;
+
+    console.log('POST body:',JSON.stringify(felder));
+
+    const resp=await fetch(`${GRAPH}/sites/${sid}/lists/${listId}/items`,{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({fields:felder})});
+    if(!resp.ok){const txt=await resp.text().catch(()=>'');let msg=txt;try{msg=JSON.parse(txt).error?.message||txt;}catch{}throw new Error(`HTTP ${resp.status}: ${msg}`);}
+
     await aktualisiereProjectStatus(projektId,selectedAmpel,fortschritt);
     showBanner('success',`✅ Status gespeichert! <a href="https://${SP_HOST}${SITE_PATH}/Lists/${LIST_TAG}/AllItems.aspx" target="_blank" style="color:inherit;text-decoration:underline;margin-left:6px;">Status-Tagebuch →</a>`);
     resetForm();
